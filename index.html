@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Catalogue Astro</title>
+    <style>
+        :root {
+            --bg-color: #0b101a;
+            --card-bg: rgba(22, 28, 39, 0.9);
+            --accent: #3498db;
+            --text: #ecf0f1;
+            --highlight: #f1c40f;
+            --success: #2ecc71;
+            --warning: #e67e22;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg-color);
+            background-size: cover; background-position: center; background-attachment: fixed;
+            color: var(--text); margin: 0; padding: 20px; min-height: 100vh;
+        }
+
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: -1; }
+
+        header { text-align: center; margin-bottom: 20px; }
+        h1 { color: var(--accent); margin-bottom: 15px; }
+        
+        .moon-widget {
+            background: rgba(0, 0, 0, 0.6); border: 1px solid var(--highlight);
+            border-radius: 15px; padding: 15px; max-width: 300px; margin: 0 auto 25px;
+            display: flex; align-items: center; justify-content: center; gap: 20px;
+        }
+        .moon-icon { font-size: 2.5rem; }
+        .moon-percent { font-weight: bold; color: var(--highlight); display: block; }
+
+        .admin-panel {
+            background: rgba(31, 39, 53, 0.95); max-width: 1100px; margin: 0 auto 30px; padding: 20px;
+            border-radius: 12px; border: 1px solid #34495e;
+        }
+
+        .form-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 12px; margin-bottom: 20px;
+        }
+
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .full-width { grid-column: 1 / -1; }
+        label { font-size: 0.75rem; color: #95a5a6; }
+
+        input, select, textarea, button { padding: 10px; border-radius: 6px; border: 1px solid #333; background: #0b101a; color: white; font-family: inherit; }
+        
+        .btn-add { background: var(--accent); border: none; font-weight: bold; cursor: pointer; height: 100%; transition: 0.2s; }
+        .btn-update { background: var(--success) !important; display: none; }
+
+        .file-actions { border-top: 1px solid #34495e; padding-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        .btn-tool { background: #9b59b6; border: none; font-weight: bold; cursor: pointer; padding: 10px; }
+
+        .controls { text-align: center; margin-bottom: 25px; }
+        .filter-btn { margin: 5px; cursor: pointer; padding: 10px 20px; border-radius: 20px; border: 1px solid var(--accent); background: transparent; color: var(--accent); }
+        .filter-btn.active { background: var(--accent); color: white; }
+
+        .catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; }
+
+        .card { background: var(--card-bg); border-radius: 10px; padding: 20px; border-top: 4px solid #333; position: relative; backdrop-filter: blur(5px); }
+        .card.is-visible { border-top-color: var(--success); }
+
+        .order-badge {
+            position: absolute; left: -10px; top: -10px;
+            background: var(--highlight); color: #000;
+            width: 28px; height: 28px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 0.9rem; border: 2px solid var(--bg-color);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 10;
+        }
+
+        .status-badge { font-size: 0.75rem; font-weight: bold; padding: 5px 12px; border-radius: 12px; margin-bottom: 12px; display: inline-block; border: 1px solid transparent; }
+        .status-visible { background: rgba(46, 204, 113, 0.15); color: #2ecc71; border-color: rgba(46, 204, 113, 0.3); }
+        .status-hidden { background: rgba(255, 255, 255, 0.05); color: #7f8c8d; border-color: rgba(255, 255, 255, 0.1); }
+
+        .ref { color: var(--highlight); font-family: monospace; font-size: 1.3rem; font-weight: bold; }
+        .obj-name { font-size: 1.1rem; margin: 5px 0 2px 0; display: block; }
+        .obj-type { font-size: 0.8rem; color: var(--accent); font-style: italic; margin-bottom: 10px; display: block; }
+        .obj-hem-tag { font-size: 0.7rem; color: #95a5a6; display: block; margin-top: 5px; }
+        
+        .notes-display { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; font-size: 0.85rem; margin-top: 10px; color: #bdc3c7; border-left: 2px solid var(--accent); white-space: pre-wrap; }
+        
+        .card-actions { position: absolute; top: 15px; right: 10px; display: flex; gap: 12px; }
+        .btn-icon { cursor: pointer; background: none; border: none; font-size: 1.2rem; padding: 0; text-decoration: none; }
+    </style>
+</head>
+<body>
+
+<div class="overlay"></div>
+
+<header>
+    <h1>🔭 Mon Catalogue Astro</h1>
+    <div id="moon-widget" class="moon-widget">
+        <div id="moon-icon" class="moon-icon">🌑</div>
+        <div class="moon-info">
+            <span id="moon-percent" class="moon-percent">Illumination : 0%</span>
+            <span id="moon-advice" style="font-size: 0.75rem; color: #ccc;">...</span>
+        </div>
+    </div>
+</header>
+
+<section class="admin-panel">
+    <input type="hidden" id="editId">
+    <div class="form-grid">
+        <div class="form-group"><label>Référence</label><input type="text" id="objRef" placeholder="Ex: M42"></div>
+        <div class="form-group"><label>Nom</label><input type="text" id="objName"></div>
+        <div class="form-group">
+            <label>Type</label>
+            <select id="objType">
+                <option value="Nébuleuse">Nébuleuse</option>
+                <option value="Galaxie">Galaxie</option>
+                <option value="Amas Ouvert">Amas Ouvert</option>
+                <option value="Amas Globulaire">Amas Globulaire</option>
+                <option value="Néb. Planétaire">Néb. Planétaire</option>
+                <option value="Autre">Autre</option>
+            </select>
+        </div>
+        <div class="form-group"><label>Début</label><select id="monthStart"></select></div>
+        <div class="form-group"><label>Fin</label><select id="monthEnd"></select></div>
+        <div class="form-group">
+            <label>Hémisphère</label>
+            <select id="objHem">
+                <option value="Nord">Nord</option>
+                <option value="Sud">Sud</option>
+                <option value="Nord & Sud">Nord & Sud</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Ordre Photo</label>
+            <input type="number" id="objOrder" placeholder="N°" min="1">
+        </div>
+        <div class="form-group full-width">
+            <label>Notes (Heures, filtres, matériel...)</label>
+            <textarea id="objNotes" placeholder="Détails de session..."></textarea>
+        </div>
+        <div class="full-width" style="display: flex; gap: 10px;">
+            <button id="addBtn" class="btn-add" style="flex:1" onclick="addCustomObject()">AJOUTER</button>
+            <button id="updateBtn" class="btn-add btn-update" style="flex:1" onclick="updateObject()">ENREGISTRER</button>
+        </div>
+    </div>
+
+    <div class="file-actions">
+        <button class="btn-tool" style="background:#e67e22" onclick="document.getElementById('bgInput').click()">🖼️ Fond</button>
+        <button class="btn-tool" onclick="exportJSON()">💾 Exporter</button>
+        <button class="btn-tool" onclick="document.getElementById('fileInput').click()">📂 Importer</button>
+        <input type="file" id="bgInput" style="display:none" accept="image/*" onchange="changeBackground(event)">
+        <input type="file" id="fileInput" style="display:none" accept=".json" onchange="importJSON(event)">
+    </div>
+</section>
+
+<div class="controls">
+    <button onclick="setHemisphere('Nord')" id="btnNord" class="filter-btn">Hém. Nord</button>
+    <button onclick="setHemisphere('Sud')" id="btnSud" class="filter-btn">Hém. Sud</button>
+    <select id="sortType" onchange="render()" style="padding:10px; border-radius:20px; background:rgba(0,0,0,0.5); color:white; border:1px solid var(--accent);">
+        <option value="order">Ordre de prise de vue (1, 2, 3...)</option>
+        <option value="visibility">Priorité Visibilité</option>
+        <option value="ref">Référence A-Z</option>
+    </select>
+</div>
+
+<div class="catalog" id="catalog"></div>
+
+<script>
+    const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+    
+    [document.getElementById('monthStart'), document.getElementById('monthEnd')].forEach(s => {
+        monthNames.forEach((m, i) => { s.add(new Option(m, i)); });
+    });
+
+    let myObjects = JSON.parse(localStorage.getItem('astroData_v3')) || [];
+    let currentHemFilter = "Sud";
+    const currentMonthIndex = new Date().getMonth();
+
+    function updateMoon() {
+        const lp = 2551443; const now = new Date(); const new_moon = new Date(1970, 0, 7, 20, 35, 0);
+        const phase = ((now.getTime() - new_moon.getTime()) / 1000) % lp;
+        const age = phase / (24 * 3600);
+        let icon = "🌑";
+        let percent = Math.round((1 - Math.abs((age - 14.76) / 14.76)) * 100);
+        if (age < 1.84) icon="🌑"; else if (age < 5.53) icon="🌒"; else if (age < 9.22) icon="🌓";
+        else if (age < 12.91) icon="🌔"; else if (age < 16.6) icon="🌕";
+        else if (age < 20.29) icon="🌖"; else if (age < 23.98) icon="🌗"; else icon="🌘";
+        document.getElementById('moon-icon').innerText = icon;
+        document.getElementById('moon-percent').innerText = `Illumination : ${percent}%`;
+        document.getElementById('moon-advice').innerText = percent > 50 ? "Ciblez les Amas." : "Idéal Nébuleuses !";
+    }
+    updateMoon();
+
+    const savedBG = localStorage.getItem('astro_bg_stable');
+    if(savedBG) document.body.style.backgroundImage = `url(${savedBG})`;
+
+    function addCustomObject() {
+        const orderVal = document.getElementById('objOrder').value;
+        myObjects.push({
+            id: Date.now(),
+            ref: document.getElementById('objRef').value.toUpperCase() || "N/A",
+            name: document.getElementById('objName').value || "Inconnu",
+            type: document.getElementById('objType').value,
+            notes: document.getElementById('objNotes').value,
+            order: orderVal !== "" ? parseInt(orderVal) : 999,
+            startIdx: parseInt(document.getElementById('monthStart').value),
+            endIdx: parseInt(document.getElementById('monthEnd').value),
+            hem: document.getElementById('objHem').value
+        });
+        saveAndRender(); clearForm();
+    }
+
+    function editObject(id) {
+        const o = myObjects.find(obj => obj.id === id);
+        document.getElementById('editId').value = o.id;
+        document.getElementById('objRef').value = o.ref;
+        document.getElementById('objName').value = o.name;
+        document.getElementById('objType').value = o.type;
+        document.getElementById('objNotes').value = o.notes || "";
+        document.getElementById('objOrder').value = o.order === 999 ? "" : o.order;
+        document.getElementById('monthStart').value = o.startIdx;
+        document.getElementById('monthEnd').value = o.endIdx;
+        document.getElementById('objHem').value = o.hem;
+        document.getElementById('addBtn').style.display = 'none';
+        document.getElementById('updateBtn').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updateObject() {
+        const id = parseInt(document.getElementById('editId').value);
+        const idx = myObjects.findIndex(o => o.id === id);
+        const orderVal = document.getElementById('objOrder').value;
+        myObjects[idx] = {...myObjects[idx], 
+            ref: document.getElementById('objRef').value.toUpperCase(),
+            name: document.getElementById('objName').value,
+            type: document.getElementById('objType').value,
+            notes: document.getElementById('objNotes').value,
+            order: orderVal !== "" ? parseInt(orderVal) : 999,
+            startIdx: parseInt(document.getElementById('monthStart').value),
+            endIdx: parseInt(document.getElementById('monthEnd').value),
+            hem: document.getElementById('objHem').value
+        };
+        saveAndRender(); clearForm();
+    }
+
+    function render() {
+        const container = document.getElementById('catalog');
+        const sortVal = document.getElementById('sortType').value;
+        container.innerHTML = '';
+        
+        let data = myObjects.filter(o => o.hem === currentHemFilter || o.hem === "Nord & Sud");
+        
+        data.sort((a, b) => {
+            if (sortVal === "order") {
+                return (a.order || 999) - (b.order || 999);
+            }
+            if (sortVal === "visibility") {
+                const vis = (o) => (o.startIdx <= o.endIdx ? (currentMonthIndex >= o.startIdx && currentMonthIndex <= o.endIdx) : (currentMonthIndex >= o.startIdx || currentMonthIndex <= o.endIdx));
+                if (vis(a) !== vis(b)) return vis(b) ? 1 : -1;
+                return (a.order || 999) - (b.order || 999);
+            }
+            return a.ref.localeCompare(b.ref);
+        });
+
+        data.forEach(o => {
+            const vis = o.startIdx <= o.endIdx ? (currentMonthIndex >= o.startIdx && currentMonthIndex <= o.endIdx) : (currentMonthIndex >= o.startIdx || currentMonthIndex <= o.endIdx);
+            const stellariumUrl = `https://stellarium-web.org/skysource/${o.ref.replace(/\s/g, '')}`;
+            
+            const card = document.createElement('div');
+            card.className = `card ${vis ? 'is-visible' : ''}`;
+            card.innerHTML = `
+                ${o.order < 999 ? `<div class="order-badge">${o.order}</div>` : ''}
+                <div class="card-actions">
+                    <a href="${stellariumUrl}" target="_blank" class="btn-icon" title="Éphémérides">📡</a>
+                    <button class="btn-icon" style="color:var(--accent)" onclick="editObject(${o.id})">✏️</button>
+                    <button class="btn-icon" style="color:#e74c3c" onclick="deleteObject(${o.id})">🗑</button>
+                </div>
+                <div class="status-badge ${vis ? 'status-visible' : 'status-hidden'}">${vis ? '● Visible' : '○ Hors saison'}</div><br>
+                <span class="ref">${o.ref}</span>
+                <span class="obj-name">${o.name}</span>
+                <span class="obj-type">${o.type}</span>
+                <div style="font-size:0.75rem; color:#888;">${monthNames[o.startIdx]} — ${monthNames[o.endIdx]}</div>
+                <span class="obj-hem-tag">🌍 ${o.hem}</span>
+                ${o.notes ? `<div class="notes-display">${o.notes}</div>` : ''}
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function clearForm() { 
+        document.getElementById('editId').value = ""; 
+        document.getElementById('objRef').value = ""; 
+        document.getElementById('objName').value = ""; 
+        document.getElementById('objNotes').value = "";
+        document.getElementById('objOrder').value = "";
+        document.getElementById('addBtn').style.display = 'block'; 
+        document.getElementById('updateBtn').style.display = 'none'; 
+    }
+    function saveAndRender() { localStorage.setItem('astroData_v3', JSON.stringify(myObjects)); render(); }
+    function setHemisphere(h) { currentHemFilter = h; document.getElementById('btnNord').classList.toggle('active', h === 'Nord'); document.getElementById('btnSud').classList.toggle('active', h === 'Sud'); render(); }
+    function deleteObject(id) { if(confirm("Supprimer ?")) { myObjects = myObjects.filter(o => o.id !== id); saveAndRender(); } }
+    function changeBackground(event) { const f = event.target.files[0]; const r = new FileReader(); r.onload = (e) => { document.body.style.backgroundImage = `url(${e.target.result})`; localStorage.setItem('astro_bg_stable', e.target.result); }; r.readAsDataURL(f); }
+    function exportJSON() { const d = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(myObjects)); const a = document.createElement('a'); a.href = d; a.download = "catalogue_astro.json"; a.click(); }
+    function importJSON(e) { const r = new FileReader(); r.onload = (e) => { try { myObjects = JSON.parse(e.target.result); saveAndRender(); } catch(err) { alert("Erreur"); } }; r.readAsText(e.target.files[0]); }
+    
+    setHemisphere('Sud');
+</script>
+<link rel="manifest" href="manifest.json">
+
+<script>
+  // Enregistrement du Service Worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => console.log('Service Worker enregistré !'))
+        .catch(err => console.log('Erreur SW:', err));
+    });
+  }
+</script>
+</body>
+</html>
