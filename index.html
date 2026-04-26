@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon Catalogue Astro</title>
+    <link rel="manifest" href="manifest.json">
     <style>
         :root {
             --bg-color: #0b101a;
@@ -22,10 +23,10 @@
             color: var(--text); margin: 0; padding: 20px; min-height: 100vh;
         }
 
-        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: -1; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.4); z-index: -1; }
 
         header { text-align: center; margin-bottom: 20px; }
-        h1 { color: var(--accent); margin-bottom: 15px; }
+        h1 { color: var(--accent); margin-bottom: 15px; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
         
         .moon-widget {
             background: rgba(0, 0, 0, 0.6); border: 1px solid var(--highlight);
@@ -37,7 +38,7 @@
 
         .admin-panel {
             background: rgba(31, 39, 53, 0.95); max-width: 1100px; margin: 0 auto 30px; padding: 20px;
-            border-radius: 12px; border: 1px solid #34495e;
+            border-radius: 12px; border: 1px solid #34495e; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
         .form-grid {
@@ -47,47 +48,51 @@
 
         .form-group { display: flex; flex-direction: column; gap: 5px; }
         .full-width { grid-column: 1 / -1; }
-        label { font-size: 0.75rem; color: #95a5a6; }
+        label { font-size: 0.75rem; color: #95a5a6; text-transform: uppercase; letter-spacing: 1px; }
 
         input, select, textarea, button { padding: 10px; border-radius: 6px; border: 1px solid #333; background: #0b101a; color: white; font-family: inherit; }
         
         .btn-add { background: var(--accent); border: none; font-weight: bold; cursor: pointer; height: 100%; transition: 0.2s; }
+        .btn-add:hover { filter: brightness(1.2); transform: translateY(-1px); }
         .btn-update { background: var(--success) !important; display: none; }
 
         .file-actions { border-top: 1px solid #34495e; padding-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-        .btn-tool { background: #9b59b6; border: none; font-weight: bold; cursor: pointer; padding: 10px; }
+        .btn-tool { border: none; font-weight: bold; cursor: pointer; padding: 10px 15px; transition: 0.2s; border-radius: 6px; color: white; display: flex; align-items: center; gap: 5px; }
+        .btn-tool:hover { filter: brightness(1.2); }
 
         .controls { text-align: center; margin-bottom: 25px; }
-        .filter-btn { margin: 5px; cursor: pointer; padding: 10px 20px; border-radius: 20px; border: 1px solid var(--accent); background: transparent; color: var(--accent); }
+        .filter-btn { margin: 5px; cursor: pointer; padding: 10px 20px; border-radius: 20px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-weight: bold; transition: 0.2s; }
         .filter-btn.active { background: var(--accent); color: white; }
 
         .catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; }
 
-        .card { background: var(--card-bg); border-radius: 10px; padding: 20px; border-top: 4px solid #333; position: relative; backdrop-filter: blur(5px); }
+        .card { background: var(--card-bg); border-radius: 10px; padding: 20px; border-top: 4px solid #333; position: relative; backdrop-filter: blur(5px); transition: 0.3s; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
         .card.is-visible { border-top-color: var(--success); }
 
         .order-badge {
             position: absolute; left: -10px; top: -10px;
             background: var(--highlight); color: #000;
-            width: 28px; height: 28px; border-radius: 50%;
+            width: 30px; height: 30px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-weight: bold; font-size: 0.9rem; border: 2px solid var(--bg-color);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 10;
+            font-weight: bold; font-size: 1rem; border: 2px solid var(--bg-color);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 5;
         }
 
         .status-badge { font-size: 0.75rem; font-weight: bold; padding: 5px 12px; border-radius: 12px; margin-bottom: 12px; display: inline-block; border: 1px solid transparent; }
         .status-visible { background: rgba(46, 204, 113, 0.15); color: #2ecc71; border-color: rgba(46, 204, 113, 0.3); }
         .status-hidden { background: rgba(255, 255, 255, 0.05); color: #7f8c8d; border-color: rgba(255, 255, 255, 0.1); }
 
-        .ref { color: var(--highlight); font-family: monospace; font-size: 1.3rem; font-weight: bold; }
-        .obj-name { font-size: 1.1rem; margin: 5px 0 2px 0; display: block; }
-        .obj-type { font-size: 0.8rem; color: var(--accent); font-style: italic; margin-bottom: 10px; display: block; }
-        .obj-hem-tag { font-size: 0.7rem; color: #95a5a6; display: block; margin-top: 5px; }
+        .ref { color: var(--highlight); font-family: monospace; font-size: 1.4rem; font-weight: bold; }
+        .obj-name { font-size: 1.2rem; margin: 5px 0 2px 0; display: block; }
+        .obj-type { font-size: 0.85rem; color: var(--accent); font-style: italic; margin-bottom: 10px; display: block; }
+        .obj-hem-tag { font-size: 0.75rem; color: #95a5a6; display: block; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 5px; }
         
-        .notes-display { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; font-size: 0.85rem; margin-top: 10px; color: #bdc3c7; border-left: 2px solid var(--accent); white-space: pre-wrap; }
+        .notes-display { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; font-size: 0.85rem; margin-top: 12px; color: #bdc3c7; border-left: 3px solid var(--accent); white-space: pre-wrap; }
         
         .card-actions { position: absolute; top: 15px; right: 10px; display: flex; gap: 12px; }
-        .btn-icon { cursor: pointer; background: none; border: none; font-size: 1.2rem; padding: 0; text-decoration: none; }
+        .btn-icon { cursor: pointer; background: none; border: none; font-size: 1.3rem; padding: 0; text-decoration: none; transition: 0.2s; }
+        .btn-icon:hover { transform: scale(1.2); }
     </style>
 </head>
 <body>
@@ -99,7 +104,7 @@
     <div id="moon-widget" class="moon-widget">
         <div id="moon-icon" class="moon-icon">🌑</div>
         <div class="moon-info">
-            <span id="moon-percent" class="moon-percent">Illumination : 0%</span>
+            <span id="moon-percent" class="moon-percent">Chargement...</span>
             <span id="moon-advice" style="font-size: 0.75rem; color: #ccc;">...</span>
         </div>
     </div>
@@ -108,7 +113,7 @@
 <section class="admin-panel">
     <input type="hidden" id="editId">
     <div class="form-grid">
-        <div class="form-group"><label>Référence</label><input type="text" id="objRef" placeholder="Ex: M42"></div>
+        <div class="form-group"><label>Référence</label><input type="text" id="objRef" placeholder="Ex: M42, NGC 253"></div>
         <div class="form-group"><label>Nom</label><input type="text" id="objName"></div>
         <div class="form-group">
             <label>Type</label>
@@ -136,29 +141,35 @@
             <input type="number" id="objOrder" placeholder="N°" min="1">
         </div>
         <div class="form-group full-width">
-            <label>Notes (Heures, filtres, matériel...)</label>
-            <textarea id="objNotes" placeholder="Détails de session..."></textarea>
+            <label>Notes (Heures de passage, filtres, matériel...)</label>
+            <textarea id="objNotes" placeholder="Détails de la session..."></textarea>
         </div>
         <div class="full-width" style="display: flex; gap: 10px;">
-            <button id="addBtn" class="btn-add" style="flex:1" onclick="addCustomObject()">AJOUTER</button>
-            <button id="updateBtn" class="btn-add btn-update" style="flex:1" onclick="updateObject()">ENREGISTRER</button>
+            <button id="addBtn" class="btn-add" style="flex:2" onclick="addCustomObject()">AJOUTER AU CATALOGUE</button>
+            <button id="updateBtn" class="btn-add btn-update" style="flex:2" onclick="updateObject()">ENREGISTRER LES MODIFS</button>
         </div>
     </div>
 
     <div class="file-actions">
         <button class="btn-tool" style="background:#e67e22" onclick="document.getElementById('bgInput').click()">🖼️ Fond</button>
-        <button class="btn-tool" onclick="exportJSON()">💾 Exporter</button>
-        <button class="btn-tool" onclick="document.getElementById('fileInput').click()">📂 Importer</button>
+        
+        <a href="https://kdrive.infomaniak.com/app/share/112299/fba9f350-c8dc-4df7-b57f-af9a20b9d745" target="_blank" style="text-decoration:none;">
+            <button class="btn-tool" style="background:#2980b9;">🎥 Tutoriel</button>
+        </a>
+
+        <button class="btn-tool" style="background:#27ae60" onclick="exportJSON()">💾 Exporter</button>
+        <button class="btn-tool" style="background:#8e44ad" onclick="document.getElementById('fileInput').click()">📂 Importer</button>
+        
         <input type="file" id="bgInput" style="display:none" accept="image/*" onchange="changeBackground(event)">
         <input type="file" id="fileInput" style="display:none" accept=".json" onchange="importJSON(event)">
     </div>
 </section>
 
 <div class="controls">
-    <button onclick="setHemisphere('Nord')" id="btnNord" class="filter-btn">Hém. Nord</button>
-    <button onclick="setHemisphere('Sud')" id="btnSud" class="filter-btn">Hém. Sud</button>
-    <select id="sortType" onchange="render()" style="padding:10px; border-radius:20px; background:rgba(0,0,0,0.5); color:white; border:1px solid var(--accent);">
-        <option value="order">Ordre de prise de vue (1, 2, 3...)</option>
+    <button onclick="setHemisphere('Nord')" id="btnNord" class="filter-btn">Hémisphère Nord</button>
+    <button onclick="setHemisphere('Sud')" id="btnSud" class="filter-btn">Hémisphère Sud</button>
+    <select id="sortType" onchange="render()" style="padding:10px; border-radius:20px; background:rgba(0,0,0,0.5); color:white; border:1px solid var(--accent); margin-top:10px;">
+        <option value="order">Ordre de prise de vue (N°)</option>
         <option value="visibility">Priorité Visibilité</option>
         <option value="ref">Référence A-Z</option>
     </select>
@@ -187,8 +198,8 @@
         else if (age < 12.91) icon="🌔"; else if (age < 16.6) icon="🌕";
         else if (age < 20.29) icon="🌖"; else if (age < 23.98) icon="🌗"; else icon="🌘";
         document.getElementById('moon-icon').innerText = icon;
-        document.getElementById('moon-percent').innerText = `Illumination : ${percent}%`;
-        document.getElementById('moon-advice').innerText = percent > 50 ? "Ciblez les Amas." : "Idéal Nébuleuses !";
+        document.getElementById('moon-percent').innerText = `Lune : ${percent}%`;
+        document.getElementById('moon-advice').innerText = percent > 50 ? "Lune brillante : Ciblez les amas." : "Ciel noir : Idéal nébuleuses !";
     }
     updateMoon();
 
@@ -200,7 +211,7 @@
         myObjects.push({
             id: Date.now(),
             ref: document.getElementById('objRef').value.toUpperCase() || "N/A",
-            name: document.getElementById('objName').value || "Inconnu",
+            name: document.getElementById('objName').value || "Sans nom",
             type: document.getElementById('objType').value,
             notes: document.getElementById('objNotes').value,
             order: orderVal !== "" ? parseInt(orderVal) : 999,
@@ -252,9 +263,7 @@
         let data = myObjects.filter(o => o.hem === currentHemFilter || o.hem === "Nord & Sud");
         
         data.sort((a, b) => {
-            if (sortVal === "order") {
-                return (a.order || 999) - (b.order || 999);
-            }
+            if (sortVal === "order") return (a.order || 999) - (b.order || 999);
             if (sortVal === "visibility") {
                 const vis = (o) => (o.startIdx <= o.endIdx ? (currentMonthIndex >= o.startIdx && currentMonthIndex <= o.endIdx) : (currentMonthIndex >= o.startIdx || currentMonthIndex <= o.endIdx));
                 if (vis(a) !== vis(b)) return vis(b) ? 1 : -1;
@@ -272,16 +281,16 @@
             card.innerHTML = `
                 ${o.order < 999 ? `<div class="order-badge">${o.order}</div>` : ''}
                 <div class="card-actions">
-                    <a href="${stellariumUrl}" target="_blank" class="btn-icon" title="Éphémérides">📡</a>
-                    <button class="btn-icon" style="color:var(--accent)" onclick="editObject(${o.id})">✏️</button>
-                    <button class="btn-icon" style="color:#e74c3c" onclick="deleteObject(${o.id})">🗑</button>
+                    <a href="${stellariumUrl}" target="_blank" class="btn-icon" title="Éphémérides Stellarium">📡</a>
+                    <button class="btn-icon" style="color:var(--accent)" onclick="editObject(${o.id})" title="Modifier">✏️</button>
+                    <button class="btn-icon" style="color:#e74c3c" onclick="deleteObject(${o.id})" title="Supprimer">🗑</button>
                 </div>
-                <div class="status-badge ${vis ? 'status-visible' : 'status-hidden'}">${vis ? '● Visible' : '○ Hors saison'}</div><br>
+                <div class="status-badge ${vis ? 'status-visible' : 'status-hidden'}">${vis ? '● Visible actuellement' : '○ Hors saison'}</div><br>
                 <span class="ref">${o.ref}</span>
                 <span class="obj-name">${o.name}</span>
                 <span class="obj-type">${o.type}</span>
-                <div style="font-size:0.75rem; color:#888;">${monthNames[o.startIdx]} — ${monthNames[o.endIdx]}</div>
-                <span class="obj-hem-tag">🌍 ${o.hem}</span>
+                <div style="font-size:0.75rem; color:#aaa;">Période : ${monthNames[o.startIdx]} — ${monthNames[o.endIdx]}</div>
+                <span class="obj-hem-tag">🌍 Visibilité : ${o.hem}</span>
                 ${o.notes ? `<div class="notes-display">${o.notes}</div>` : ''}
             `;
             container.appendChild(card);
@@ -299,24 +308,21 @@
     }
     function saveAndRender() { localStorage.setItem('astroData_v3', JSON.stringify(myObjects)); render(); }
     function setHemisphere(h) { currentHemFilter = h; document.getElementById('btnNord').classList.toggle('active', h === 'Nord'); document.getElementById('btnSud').classList.toggle('active', h === 'Sud'); render(); }
-    function deleteObject(id) { if(confirm("Supprimer ?")) { myObjects = myObjects.filter(o => o.id !== id); saveAndRender(); } }
+    function deleteObject(id) { if(confirm("Supprimer cet objet ?")) { myObjects = myObjects.filter(o => o.id !== id); saveAndRender(); } }
     function changeBackground(event) { const f = event.target.files[0]; const r = new FileReader(); r.onload = (e) => { document.body.style.backgroundImage = `url(${e.target.result})`; localStorage.setItem('astro_bg_stable', e.target.result); }; r.readAsDataURL(f); }
-    function exportJSON() { const d = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(myObjects)); const a = document.createElement('a'); a.href = d; a.download = "catalogue_astro.json"; a.click(); }
-    function importJSON(e) { const r = new FileReader(); r.onload = (e) => { try { myObjects = JSON.parse(e.target.result); saveAndRender(); } catch(err) { alert("Erreur"); } }; r.readAsText(e.target.files[0]); }
+    function exportJSON() { const d = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(myObjects)); const a = document.createElement('a'); a.href = d; a.download = "mon_catalogue_astro.json"; a.click(); }
+    function importJSON(e) { const r = new FileReader(); r.onload = (e) => { try { myObjects = JSON.parse(e.target.result); saveAndRender(); } catch(err) { alert("Format JSON invalide"); } }; r.readAsText(e.target.files[0]); }
     
-    setHemisphere('Sud');
-</script>
-<link rel="manifest" href="manifest.json">
+    // Enregistrement du Service Worker pour la PWA
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('PWA prête (SW enregistré)'))
+                .catch(err => console.log('Erreur SW:', err));
+        });
+    }
 
-<script>
-  // Enregistrement du Service Worker
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js')
-        .then(reg => console.log('Service Worker enregistré !'))
-        .catch(err => console.log('Erreur SW:', err));
-    });
-  }
+    setHemisphere('Sud');
 </script>
 </body>
 </html>
