@@ -1,23 +1,31 @@
 {
-  "name": "Astro Suivi",
+  "name": "Mon Catalogue Astro Suivi",
   "short_name": "Astro Suivi",
-  "description": "Gestionnaire de cibles astrophotographiques",
+  "description": "Planificateur et suivi de cibles pour l'astrophotographie",
   "start_url": "./index.html",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#0b101a",
   "theme_color": "#3498db",
+  "scope": "./",
   "icons": [
     {
-      "src": "icon.png",
+      "src": "https://cdn-icons-png.flaticon.com/512/2534/2534125.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "icon.png",
+      "src": "https://cdn-icons-png.flaticon.com/512/2534/2534125.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2534/2534125.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
