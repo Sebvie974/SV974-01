@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Astro Suivi</title>
+    <title>Mon Catalogue Astro</title>
     <link rel="manifest" href="manifest.json">
     <style>
         :root {
@@ -110,6 +110,11 @@
         .session-action-btn:hover { transform: scale(1.2); }
 
         .mosaic-container { background: rgba(241, 196, 15, 0.1); border-left: 3px solid var(--highlight); padding: 10px 15px; border-radius: 4px; display: none; margin-top: 10px; }
+
+        /* Styles pour le récapitulatif des filtres */
+        .filter-summary { background: rgba(52, 152, 219, 0.1); border-left: 4px solid var(--accent); padding: 12px 15px; border-radius: 6px; margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 10px; }
+        .filter-summary-item { background: rgba(0,0,0,0.4); padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.08); }
+        .filter-summary-item strong { color: var(--highlight); }
     </style>
 </head>
 <body>
@@ -197,13 +202,15 @@
         <div class="admin-panel" style="margin-bottom: 20px; padding: 15px; box-shadow:none;">
             <h3 style="margin-top:0; color:var(--accent); font-size:1rem;">Nouvelle Session</h3>
             <div class="form-grid">
-                <div class="form-group"><label>Projet / Compo</label><input type="text" id="sesProject" placeholder="Ex: SHO, Mosaïque Orion..."></div>
-                <div class="form-group"><label>Date</label><input type="date" id="sesDate"></div>
-                <div class="form-group"><label>Nb de Poses</label><input type="number" id="sesCount" placeholder="Ex: 60"></div>
-                <div class="form-group"><label>Temps Unitaire (s)</label><input type="number" id="sesTime" placeholder="Ex: 300"></div>
-                <div class="form-group"><label>Filtre</label><input type="text" id="sesFilter" placeholder="Ex: Ha, OIII, RGB..."></div>
-                <div class="form-group"><label>Caméra</label><input type="text" id="sesCam" placeholder="Ex: Ares-C Pro"></div>
-                <div class="form-group"><label>Lunette / Tube</label><input type="text" id="sesScope" placeholder="Ex: TS 61 EDPH II"></div>
+                <div class="form-grid" style="grid-column: 1 / -1; gap: 12px;">
+                    <div class="form-group"><label>Projet / Compo</label><input type="text" id="sesProject" placeholder="Ex: SHO, Mosaïque Orion..."></div>
+                    <div class="form-group"><label>Date</label><input type="date" id="sesDate"></div>
+                    <div class="form-group"><label>Nb de Poses</label><input type="number" id="sesCount" placeholder="Ex: 60"></div>
+                    <div class="form-group"><label>Temps Unitaire (s)</label><input type="number" id="sesTime" placeholder="Ex: 300"></div>
+                    <div class="form-group"><label>Filtre</label><input type="text" id="sesFilter" placeholder="Ex: Ha, OIII, RGB..."></div>
+                    <div class="form-group"><label>Caméra</label><input type="text" id="sesCam" placeholder="Ex: Ares-C Pro"></div>
+                    <div class="form-group"><label>Lunette / Tube</label><input type="text" id="sesScope" placeholder="Ex: TS 61 EDPH II"></div>
+                </div>
                 
                 <div class="form-group full-width" style="flex-direction: row; align-items: center; gap: 10px; margin-top: 5px;">
                     <input type="checkbox" id="sesMosaic" onchange="toggleMosaic()">
@@ -222,6 +229,7 @@
         </div>
 
         <div id="sessionListFilter" style="margin-bottom: 10px;"></div>
+        <div id="sessionFilterSummary"></div>
         <div id="sessionList"></div>
     </div>
 </div>
@@ -237,7 +245,7 @@
     let currentHemFilter = "Sud";
     let currentTargetId = null;
     let currentProjectFilter = null;
-    let currentEditSessionId = null; // Variable pour suivre l'édition d'une session
+    let currentEditSessionId = null;
     const currentMonthIndex = new Date().getMonth();
 
     document.getElementById('sesDate').valueAsDate = new Date();
@@ -301,13 +309,11 @@
         saveAndRender(); clearForm();
     }
 
-    /* GESTION MOSAIQUE UI */
     function toggleMosaic() {
         const isChecked = document.getElementById('sesMosaic').checked;
         document.getElementById('mosaicFields').style.display = isChecked ? 'grid' : 'none';
     }
 
-    /* GESTION DES SESSIONS */
     function openSessions(id, projectName = null) {
         currentTargetId = id;
         currentProjectFilter = projectName;
@@ -351,7 +357,7 @@
             project: document.getElementById('sesProject').value || 'Défaut',
             date: document.getElementById('sesDate').value,
             count: count, time: time,
-            filter: document.getElementById('sesFilter').value || '-',
+            filter: document.getElementById('sesFilter').value.trim() || '-',
             cam: document.getElementById('sesCam').value || '-',
             scope: document.getElementById('sesScope').value || '-',
             isMosaic: isMosaic,
@@ -360,11 +366,9 @@
         };
 
         if (currentEditSessionId) {
-            // Modification
             const sIndex = obj.sessions.findIndex(s => s.id === currentEditSessionId);
             if (sIndex > -1) obj.sessions[sIndex] = { ...obj.sessions[sIndex], ...sessionData };
         } else {
-            // Ajout
             obj.sessions.push({ id: Date.now(), ...sessionData });
         }
         
@@ -379,8 +383,6 @@
         if (!s) return;
 
         currentEditSessionId = sessionId;
-
-        // Préremplir le formulaire
         document.getElementById('sesProject').value = s.project || '';
         document.getElementById('sesDate').value = s.date || '';
         document.getElementById('sesCount').value = s.count || '';
@@ -388,17 +390,13 @@
         document.getElementById('sesFilter').value = s.filter || '';
         document.getElementById('sesCam').value = s.cam || '';
         document.getElementById('sesScope').value = s.scope || '';
-
         document.getElementById('sesMosaic').checked = !!s.isMosaic;
         document.getElementById('sesPanelNum').value = s.panelNum || '';
         document.getElementById('sesPanelTotal').value = s.panelTotal || '';
         toggleMosaic();
 
-        // Changer l'apparence du bouton
         document.getElementById('btnSubmitSession').innerText = "METTRE À JOUR LA SESSION";
         document.getElementById('btnSubmitSession').style.background = "var(--success)";
-        
-        // Remonter en haut de la modale
         document.getElementById('modalContentDiv').scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -416,7 +414,9 @@
         const obj = myObjects.find(o => o.id === currentTargetId);
         const listDiv = document.getElementById('sessionList');
         const filterDiv = document.getElementById('sessionListFilter');
-        listDiv.innerHTML = ''; filterDiv.innerHTML = '';
+        const summaryDiv = document.getElementById('sessionFilterSummary');
+        
+        listDiv.innerHTML = ''; filterDiv.innerHTML = ''; summaryDiv.innerHTML = '';
 
         if(!obj.sessions || obj.sessions.length === 0) {
             listDiv.innerHTML = '<p style="color:#7f8c8d; text-align:center;">Aucune session enregistrée pour cette cible.</p>';
@@ -428,6 +428,33 @@
         if(currentProjectFilter) {
             filterDiv.innerHTML = `<span class="project-badge" onclick="openSessions(${obj.id}, null)">❌ Filtre actif : ${currentProjectFilter} (Cliquez pour annuler)</span>`;
             displaySessions = obj.sessions.filter(s => s.project === currentProjectFilter);
+        }
+
+        /* LOGIQUE DE CALCUL DU TEMPS PAR FILTRE */
+        if(displaySessions.length > 0) {
+            const filterTotals = {};
+            displaySessions.forEach(s => {
+                const f = s.filter && s.filter.trim() !== '' ? s.filter.trim() : '-';
+                const totalSec = s.count * s.time;
+                filterTotals[f] = (filterTotals[f] || 0) + totalSec;
+            });
+
+            const summaryContainer = document.createElement('div');
+            summaryContainer.className = 'filter-summary';
+            summaryContainer.innerHTML = '<h4 style="margin:0 0 8px 0; width:100%; font-size:0.8rem; color:#95a5a6; text-transform:uppercase; letter-spacing:0.5px;">Temps total par filtre :</h4>';
+
+            Object.keys(filterTotals).forEach(f => {
+                const totalSec = filterTotals[f];
+                const hours = Math.floor(totalSec / 3600);
+                const mins = Math.floor((totalSec % 3600) / 60);
+                const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins} min`;
+
+                const summaryItem = document.createElement('span');
+                summaryItem.className = 'filter-summary-item';
+                summaryItem.innerHTML = `Filtre <b>${f}</b> : <strong>${timeStr}</strong>`;
+                summaryContainer.appendChild(summaryItem);
+            });
+            summaryDiv.appendChild(summaryContainer);
         }
 
         displaySessions.sort((a,b) => new Date(b.date) - new Date(a.date));
