@@ -14,6 +14,7 @@
             --highlight: #f1c40f;
             --success: #2ecc71;
             --warning: #e67e22;
+            --project: #9b59b6;
         }
 
         body {
@@ -53,6 +54,7 @@
         input, select, textarea, button { padding: 10px; border-radius: 6px; border: 1px solid #333; background: #0b101a; color: white; font-family: inherit; }
         
         .btn-add { background: var(--accent); border: none; font-weight: bold; cursor: pointer; height: 100%; transition: 0.2s; }
+        .btn-add:hover { filter: brightness(1.2); }
         .btn-update { background: var(--success) !important; display: none; }
 
         .file-actions { border-top: 1px solid #34495e; padding-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
@@ -89,6 +91,22 @@
         
         .card-actions { position: absolute; top: 15px; right: 10px; display: flex; gap: 12px; }
         .btn-icon { cursor: pointer; background: none; border: none; font-size: 1.3rem; padding: 0; text-decoration: none; }
+
+        /* Nouveaux styles pour les projets et sessions */
+        .project-badges-container { margin-top: 15px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .project-badge { background: rgba(155, 89, 182, 0.2); color: #d2b4de; border: 1px solid var(--project); padding: 5px 10px; border-radius: 15px; font-size: 0.8rem; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .project-badge:hover { background: var(--project); color: white; }
+
+        /* Fenêtre Modale Sessions */
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); }
+        .modal-content { background: #161c27; margin: 5% auto; padding: 25px; border: 1px solid var(--project); width: 90%; max-width: 800px; border-radius: 12px; max-height: 85vh; overflow-y: auto; }
+        .close-modal { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; line-height: 1; }
+        .close-modal:hover { color: white; }
+        
+        .session-item { background: rgba(0,0,0,0.4); border-left: 4px solid var(--project); padding: 15px; margin-bottom: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .session-details { font-size: 0.85rem; color: #bdc3c7; line-height: 1.5; }
+        .session-title { color: var(--highlight); font-weight: bold; font-size: 1rem; display: block; margin-bottom: 5px; }
+        .session-del { color: #e74c3c; background: none; border: none; cursor: pointer; font-size: 1.2rem; }
     </style>
 </head>
 <body>
@@ -137,23 +155,20 @@
             <input type="number" id="objOrder" placeholder="N°" min="1">
         </div>
         <div class="form-group full-width">
-            <label>Notes (Filtres, temps de pose, matériel...)</label>
-            <textarea id="objNotes" placeholder="Détails de session..."></textarea>
+            <label>Notes globales (Aperçu rapide)</label>
+            <textarea id="objNotes" placeholder="Ex: Cible facile, éviter pleine lune..."></textarea>
         </div>
         <div class="full-width" style="display: flex; gap: 10px;">
-            <button id="addBtn" class="btn-add" style="flex:2" onclick="addCustomObject()">AJOUTER</button>
-            <button id="updateBtn" class="btn-add btn-update" style="flex:2" onclick="updateObject()">ENREGISTRER</button>
+            <button id="addBtn" class="btn-add" style="flex:2" onclick="addCustomObject()">AJOUTER CIBLE</button>
+            <button id="updateBtn" class="btn-add btn-update" style="flex:2" onclick="updateObject()">ENREGISTRER MODIFS</button>
         </div>
     </div>
 
     <div class="file-actions">
         <button class="btn-tool" style="background:#e67e22" onclick="document.getElementById('bgInput').click()">🖼️ Fond</button>
-        
-        <a href="https://kdrive.infomaniak.com/app/share/112299/fba9f350-c8dc-4df7-b57f-af9a20b9d745" target="_blank" class="btn-tool" style="background:#2980b9;">🎥 Tutoriel</a>
-
+        <a href="URL_DE_TA_VIDEO_ICI" target="_blank" class="btn-tool" style="background:#2980b9;">🎥 Tutoriel</a>
         <button class="btn-tool" style="background:#27ae60" onclick="exportJSON()">💾 Exporter</button>
         <button class="btn-tool" style="background:#8e44ad" onclick="document.getElementById('fileInput').click()">📂 Importer</button>
-        
         <input type="file" id="bgInput" style="display:none" accept="image/*" onchange="changeBackground(event)">
         <input type="file" id="fileInput" style="display:none" accept=".json" onchange="importJSON(event)">
     </div>
@@ -171,6 +186,32 @@
 
 <div class="catalog" id="catalog"></div>
 
+<div id="sessionModal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeModal()">&times;</span>
+        <h2 id="modalTitle" style="color: var(--project); margin-top:0;">Sessions d'Acquisition</h2>
+        
+        <div class="admin-panel" style="margin-bottom: 20px; padding: 15px; box-shadow:none;">
+            <h3 style="margin-top:0; color:var(--accent); font-size:1rem;">Nouvelle Session</h3>
+            <div class="form-grid">
+                <div class="form-group"><label>Projet / Compo</label><input type="text" id="sesProject" placeholder="Ex: SHO, HOO, RVB..."></div>
+                <div class="form-group"><label>Date</label><input type="date" id="sesDate"></div>
+                <div class="form-group"><label>Nb de Poses</label><input type="number" id="sesCount" placeholder="Ex: 60"></div>
+                <div class="form-group"><label>Temps Unitaire (s)</label><input type="number" id="sesTime" placeholder="Ex: 300"></div>
+                <div class="form-group"><label>Filtre</label><input type="text" id="sesFilter" placeholder="Ex: L-eNhance, Ha..."></div>
+                <div class="form-group"><label>Caméra</label><input type="text" id="sesCam" placeholder="Ex: ASI533MC"></div>
+                <div class="form-group"><label>Lunette / Tube</label><input type="text" id="sesScope" placeholder="Ex: Redcat 51"></div>
+                <div class="full-width">
+                    <button class="btn-add" style="width:100%; background:var(--project)" onclick="addSession()">VALIDER LA SESSION</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="sessionListFilter" style="margin-bottom: 10px;"></div>
+        <div id="sessionList"></div>
+    </div>
+</div>
+
 <script>
     /* LOGIQUE APPLICATION */
     const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -181,20 +222,20 @@
 
     let myObjects = JSON.parse(localStorage.getItem('astroData_v3')) || [];
     let currentHemFilter = "Sud";
+    let currentTargetId = null;
+    let currentProjectFilter = null;
     const currentMonthIndex = new Date().getMonth();
+
+    // Initialisation date du jour pour les sessions
+    document.getElementById('sesDate').valueAsDate = new Date();
 
     function updateMoon() {
         const lp = 2551443; const now = new Date(); const new_moon = new Date(1970, 0, 7, 20, 35, 0);
         const phase = ((now.getTime() - new_moon.getTime()) / 1000) % lp;
         const age = phase / (24 * 3600);
-        let icon = "🌑";
-        let percent = Math.round((1 - Math.abs((age - 14.76) / 14.76)) * 100);
-        if (age < 1.84) icon="🌑"; else if (age < 5.53) icon="🌒"; else if (age < 9.22) icon="🌓";
-        else if (age < 12.91) icon="🌔"; else if (age < 16.6) icon="🌕";
-        else if (age < 20.29) icon="🌖"; else if (age < 23.98) icon="🌗"; else icon="🌘";
-        document.getElementById('moon-icon').innerText = icon;
-        document.getElementById('moon-percent').innerText = `Lune : ${percent}%`;
-        document.getElementById('moon-advice').innerText = percent > 50 ? "Lune gênante." : "Ciel profond OK !";
+        let icon = "🌑", percent = Math.round((1 - Math.abs((age - 14.76) / 14.76)) * 100);
+        if (age < 1.84) icon="🌑"; else if (age < 5.53) icon="🌒"; else if (age < 9.22) icon="🌓"; else if (age < 12.91) icon="🌔"; else if (age < 16.6) icon="🌕"; else if (age < 20.29) icon="🌖"; else if (age < 23.98) icon="🌗"; else icon="🌘";
+        document.getElementById('moon-icon').innerText = icon; document.getElementById('moon-percent').innerText = `Lune : ${percent}%`; document.getElementById('moon-advice').innerText = percent > 50 ? "Lune gênante." : "Ciel profond OK !";
     }
     updateMoon();
 
@@ -212,7 +253,8 @@
             order: orderVal !== "" ? parseInt(orderVal) : 999,
             startIdx: parseInt(document.getElementById('monthStart').value),
             endIdx: parseInt(document.getElementById('monthEnd').value),
-            hem: document.getElementById('objHem').value
+            hem: document.getElementById('objHem').value,
+            sessions: []
         });
         saveAndRender(); clearForm();
     }
@@ -238,16 +280,110 @@
         const idx = myObjects.findIndex(o => o.id === id);
         const orderVal = document.getElementById('objOrder').value;
         myObjects[idx] = {...myObjects[idx], 
-            ref: document.getElementById('objRef').value.toUpperCase(),
-            name: document.getElementById('objName').value,
-            type: document.getElementById('objType').value,
-            notes: document.getElementById('objNotes').value,
-            order: orderVal !== "" ? parseInt(orderVal) : 999,
-            startIdx: parseInt(document.getElementById('monthStart').value),
-            endIdx: parseInt(document.getElementById('monthEnd').value),
-            hem: document.getElementById('objHem').value
+            ref: document.getElementById('objRef').value.toUpperCase(), name: document.getElementById('objName').value,
+            type: document.getElementById('objType').value, notes: document.getElementById('objNotes').value,
+            order: orderVal !== "" ? parseInt(orderVal) : 999, startIdx: parseInt(document.getElementById('monthStart').value),
+            endIdx: parseInt(document.getElementById('monthEnd').value), hem: document.getElementById('objHem').value
         };
         saveAndRender(); clearForm();
+    }
+
+    /* GESTION DES SESSIONS */
+    function openSessions(id, projectName = null) {
+        currentTargetId = id;
+        currentProjectFilter = projectName;
+        const obj = myObjects.find(o => o.id === id);
+        document.getElementById('modalTitle').innerText = `Acquisitions : ${obj.ref} - ${obj.name}`;
+        
+        // Préremplissage Projet si clic sur un badge
+        if(projectName) document.getElementById('sesProject').value = projectName;
+        
+        renderSessionList();
+        document.getElementById('sessionModal').style.display = "block";
+    }
+
+    function closeModal() {
+        document.getElementById('sessionModal').style.display = "none";
+        document.getElementById('sesCount').value = "";
+        document.getElementById('sesTime').value = "";
+        render(); // Rafraichit la vue principale pour mettre à jour les heures
+    }
+
+    function addSession() {
+        const obj = myObjects.find(o => o.id === currentTargetId);
+        if(!obj.sessions) obj.sessions = [];
+        
+        const count = parseInt(document.getElementById('sesCount').value) || 0;
+        const time = parseInt(document.getElementById('sesTime').value) || 0;
+        
+        obj.sessions.push({
+            id: Date.now(),
+            project: document.getElementById('sesProject').value || 'Défaut',
+            date: document.getElementById('sesDate').value,
+            count: count, time: time,
+            filter: document.getElementById('sesFilter').value || '-',
+            cam: document.getElementById('sesCam').value || '-',
+            scope: document.getElementById('sesScope').value || '-'
+        });
+        
+        saveAndRender();
+        renderSessionList();
+        
+        // Vider partiellement
+        document.getElementById('sesCount').value = "";
+        document.getElementById('sesTime').value = "";
+    }
+
+    function deleteSession(sessionId) {
+        if(confirm("Supprimer cette session ?")) {
+            const obj = myObjects.find(o => o.id === currentTargetId);
+            obj.sessions = obj.sessions.filter(s => s.id !== sessionId);
+            saveAndRender();
+            renderSessionList();
+        }
+    }
+
+    function renderSessionList() {
+        const obj = myObjects.find(o => o.id === currentTargetId);
+        const listDiv = document.getElementById('sessionList');
+        const filterDiv = document.getElementById('sessionListFilter');
+        listDiv.innerHTML = ''; filterDiv.innerHTML = '';
+
+        if(!obj.sessions || obj.sessions.length === 0) {
+            listDiv.innerHTML = '<p style="color:#7f8c8d; text-align:center;">Aucune session enregistrée pour cette cible.</p>';
+            return;
+        }
+
+        let displaySessions = obj.sessions;
+        
+        if(currentProjectFilter) {
+            filterDiv.innerHTML = `<span class="project-badge" onclick="openSessions(${obj.id}, null)">❌ Filtre actif : ${currentProjectFilter} (Cliquez pour annuler)</span>`;
+            displaySessions = obj.sessions.filter(s => s.project === currentProjectFilter);
+        }
+
+        // Tri par date décroissante
+        displaySessions.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+        displaySessions.forEach(s => {
+            const totalSec = s.count * s.time;
+            const hours = Math.floor(totalSec / 3600);
+            const mins = Math.floor((totalSec % 3600) / 60);
+            const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins} min`;
+
+            const item = document.createElement('div');
+            item.className = 'session-item';
+            item.innerHTML = `
+                <div>
+                    <span class="session-title">[${s.project}] - ${s.date}</span>
+                    <div class="session-details">
+                        <b>Intégration:</b> ${s.count} poses x ${s.time}s (${timeStr})<br>
+                        <b>Matériel:</b> ${s.scope} | ${s.cam} | Filtre: ${s.filter}
+                    </div>
+                </div>
+                <button class="session-del" onclick="deleteSession(${s.id})" title="Supprimer session">🗑</button>
+            `;
+            listDiv.appendChild(item);
+        });
     }
 
     function render() {
@@ -271,14 +407,27 @@
             const vis = o.startIdx <= o.endIdx ? (currentMonthIndex >= o.startIdx && currentMonthIndex <= o.endIdx) : (currentMonthIndex >= o.startIdx || currentMonthIndex <= o.endIdx);
             const stellariumUrl = `https://stellarium-web.org/skysource/${o.ref.replace(/\s/g, '')}`;
             
+            // Calcul des badges de projets
+            let projectBadgesHTML = '';
+            if (o.sessions && o.sessions.length > 0) {
+                const projects = [...new Set(o.sessions.map(s => s.project))];
+                projects.forEach(p => {
+                    let totalTimeSec = 0;
+                    o.sessions.filter(s => s.project === p).forEach(s => totalTimeSec += (s.count * s.time));
+                    let hours = (totalTimeSec / 3600).toFixed(1);
+                    projectBadgesHTML += `<span class="project-badge" onclick="openSessions(${o.id}, '${p}')">📸 ${p} (${hours}h)</span>`;
+                });
+            }
+
             const card = document.createElement('div');
             card.className = `card ${vis ? 'is-visible' : ''}`;
             card.innerHTML = `
                 ${o.order < 999 ? `<div class="order-badge">${o.order}</div>` : ''}
                 <div class="card-actions">
-                    <a href="${stellariumUrl}" target="_blank" class="btn-icon">📡</a>
-                    <button class="btn-icon" style="color:var(--accent)" onclick="editObject(${o.id})">✏️</button>
-                    <button class="btn-icon" style="color:#e74c3c" onclick="deleteObject(${o.id})">🗑</button>
+                    <button class="btn-icon" style="color:var(--project)" onclick="openSessions(${o.id})" title="Gérer les Sessions">📸</button>
+                    <a href="${stellariumUrl}" target="_blank" class="btn-icon" title="Éphémérides">📡</a>
+                    <button class="btn-icon" style="color:var(--accent)" onclick="editObject(${o.id})" title="Modifier">✏️</button>
+                    <button class="btn-icon" style="color:#e74c3c" onclick="deleteObject(${o.id})" title="Supprimer">🗑</button>
                 </div>
                 <div class="status-badge ${vis ? 'status-visible' : 'status-hidden'}">${vis ? '● Visible' : '○ Hors saison'}</div><br>
                 <span class="ref">${o.ref}</span>
@@ -286,6 +435,8 @@
                 <span class="obj-type">${o.type}</span>
                 <div style="font-size:0.75rem; color:#aaa;">${monthNames[o.startIdx]} — ${monthNames[o.endIdx]}</div>
                 <span class="obj-hem-tag">🌍 ${o.hem}</span>
+                
+                ${projectBadgesHTML ? `<div class="project-badges-container">${projectBadgesHTML}</div>` : ''}
                 ${o.notes ? `<div class="notes-display">${o.notes}</div>` : ''}
             `;
             container.appendChild(card);
@@ -300,18 +451,14 @@
     }
     function saveAndRender() { localStorage.setItem('astroData_v3', JSON.stringify(myObjects)); render(); }
     function setHemisphere(h) { currentHemFilter = h; document.getElementById('btnNord').classList.toggle('active', h === 'Nord'); document.getElementById('btnSud').classList.toggle('active', h === 'Sud'); render(); }
-    function deleteObject(id) { if(confirm("Supprimer ?")) { myObjects = myObjects.filter(o => o.id !== id); saveAndRender(); } }
+    function deleteObject(id) { if(confirm("Supprimer cette cible et toutes ses sessions ?")) { myObjects = myObjects.filter(o => o.id !== id); saveAndRender(); } }
     function changeBackground(event) { const f = event.target.files[0]; const r = new FileReader(); r.onload = (e) => { document.body.style.backgroundImage = `url(${e.target.result})`; localStorage.setItem('astro_bg_stable', e.target.result); }; r.readAsDataURL(f); }
-    function exportJSON() { const d = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(myObjects)); const a = document.createElement('a'); a.href = d; a.download = "astro_suivi.json"; a.click(); }
+    function exportJSON() { const d = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(myObjects)); const a = document.createElement('a'); a.href = d; a.download = "astro_suivi_complet.json"; a.click(); }
     function importJSON(e) { const r = new FileReader(); r.onload = (e) => { try { myObjects = JSON.parse(e.target.result); saveAndRender(); } catch(err) { alert("Erreur JSON"); } }; r.readAsText(e.target.files[0]); }
     
-    /* ENREGISTREMENT PWA */
+    // Enregistrement du Service Worker
     if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('SW enregistré !'))
-                .catch(err => console.error('Erreur SW:', err));
-        });
+        window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
     }
 
     setHemisphere('Sud');
