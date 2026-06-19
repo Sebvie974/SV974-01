@@ -52,8 +52,9 @@
         label { font-size: 0.75rem; color: #95a5a6; text-transform: uppercase; }
 
         input, select, textarea, button { padding: 10px; border-radius: 6px; border: 1px solid #333; background: #0b101a; color: white; font-family: inherit; }
+        input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--highlight); }
         
-        .btn-add { background: var(--accent); border: none; font-weight: bold; cursor: pointer; height: 100%; transition: 0.2s; }
+        .btn-add { background: var(--accent); border: none; font-weight: bold; cursor: pointer; height: 100%; transition: 0.2s; padding: 12px; }
         .btn-add:hover { filter: brightness(1.2); }
         .btn-update { background: var(--success) !important; display: none; }
 
@@ -92,12 +93,10 @@
         .card-actions { position: absolute; top: 15px; right: 10px; display: flex; gap: 12px; }
         .btn-icon { cursor: pointer; background: none; border: none; font-size: 1.3rem; padding: 0; text-decoration: none; }
 
-        /* Nouveaux styles pour les projets et sessions */
         .project-badges-container { margin-top: 15px; display: flex; flex-wrap: wrap; gap: 8px; }
         .project-badge { background: rgba(155, 89, 182, 0.2); color: #d2b4de; border: 1px solid var(--project); padding: 5px 10px; border-radius: 15px; font-size: 0.8rem; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .project-badge:hover { background: var(--project); color: white; }
 
-        /* Fenêtre Modale Sessions */
         .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); }
         .modal-content { background: #161c27; margin: 5% auto; padding: 25px; border: 1px solid var(--project); width: 90%; max-width: 800px; border-radius: 12px; max-height: 85vh; overflow-y: auto; }
         .close-modal { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; line-height: 1; }
@@ -107,6 +106,8 @@
         .session-details { font-size: 0.85rem; color: #bdc3c7; line-height: 1.5; }
         .session-title { color: var(--highlight); font-weight: bold; font-size: 1rem; display: block; margin-bottom: 5px; }
         .session-del { color: #e74c3c; background: none; border: none; cursor: pointer; font-size: 1.2rem; }
+
+        .mosaic-container { background: rgba(241, 196, 15, 0.1); border-left: 3px solid var(--highlight); padding: 10px 15px; border-radius: 4px; display: none; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -194,15 +195,26 @@
         <div class="admin-panel" style="margin-bottom: 20px; padding: 15px; box-shadow:none;">
             <h3 style="margin-top:0; color:var(--accent); font-size:1rem;">Nouvelle Session</h3>
             <div class="form-grid">
-                <div class="form-group"><label>Projet / Compo</label><input type="text" id="sesProject" placeholder="Ex: SHO, HOO, RVB..."></div>
+                <div class="form-group"><label>Projet / Compo</label><input type="text" id="sesProject" placeholder="Ex: SHO, Mosaïque Orion..."></div>
                 <div class="form-group"><label>Date</label><input type="date" id="sesDate"></div>
                 <div class="form-group"><label>Nb de Poses</label><input type="number" id="sesCount" placeholder="Ex: 60"></div>
                 <div class="form-group"><label>Temps Unitaire (s)</label><input type="number" id="sesTime" placeholder="Ex: 300"></div>
-                <div class="form-group"><label>Filtre</label><input type="text" id="sesFilter" placeholder="Ex: L-eNhance, Ha..."></div>
-                <div class="form-group"><label>Caméra</label><input type="text" id="sesCam" placeholder="Ex: ASI533MC"></div>
-                <div class="form-group"><label>Lunette / Tube</label><input type="text" id="sesScope" placeholder="Ex: Redcat 51"></div>
+                <div class="form-group"><label>Filtre</label><input type="text" id="sesFilter" placeholder="Ex: Ha, OIII, RGB..."></div>
+                <div class="form-group"><label>Caméra</label><input type="text" id="sesCam" placeholder="Ex: Ares-C Pro"></div>
+                <div class="form-group"><label>Lunette / Tube</label><input type="text" id="sesScope" placeholder="Ex: TS 61 EDPH II"></div>
+                
+                <div class="form-group full-width" style="flex-direction: row; align-items: center; gap: 10px; margin-top: 5px;">
+                    <input type="checkbox" id="sesMosaic" onchange="toggleMosaic()">
+                    <label for="sesMosaic" style="color: var(--highlight); cursor: pointer; margin: 0; font-size: 0.85rem;">Cette session est une tuile de mosaïque</label>
+                </div>
+                
+                <div id="mosaicFields" class="form-grid full-width mosaic-container">
+                    <div class="form-group"><label style="color:#f1c40f;">Panneau N°</label><input type="number" id="sesPanelNum" placeholder="Ex: 1" min="1"></div>
+                    <div class="form-group"><label style="color:#f1c40f;">Total de Panneaux</label><input type="number" id="sesPanelTotal" placeholder="Ex: 6" min="1"></div>
+                </div>
+
                 <div class="full-width">
-                    <button class="btn-add" style="width:100%; background:var(--project)" onclick="addSession()">VALIDER LA SESSION</button>
+                    <button class="btn-add" style="width:100%; background:var(--project); margin-top: 10px;" onclick="addSession()">VALIDER LA SESSION</button>
                 </div>
             </div>
         </div>
@@ -213,7 +225,6 @@
 </div>
 
 <script>
-    /* LOGIQUE APPLICATION */
     const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
     
     [document.getElementById('monthStart'), document.getElementById('monthEnd')].forEach(s => {
@@ -226,7 +237,6 @@
     let currentProjectFilter = null;
     const currentMonthIndex = new Date().getMonth();
 
-    // Initialisation date du jour pour les sessions
     document.getElementById('sesDate').valueAsDate = new Date();
 
     function updateMoon() {
@@ -288,6 +298,12 @@
         saveAndRender(); clearForm();
     }
 
+    /* GESTION MOSAIQUE UI */
+    function toggleMosaic() {
+        const isChecked = document.getElementById('sesMosaic').checked;
+        document.getElementById('mosaicFields').style.display = isChecked ? 'grid' : 'none';
+    }
+
     /* GESTION DES SESSIONS */
     function openSessions(id, projectName = null) {
         currentTargetId = id;
@@ -295,9 +311,14 @@
         const obj = myObjects.find(o => o.id === id);
         document.getElementById('modalTitle').innerText = `Acquisitions : ${obj.ref} - ${obj.name}`;
         
-        // Préremplissage Projet si clic sur un badge
         if(projectName) document.getElementById('sesProject').value = projectName;
         
+        // Reset Mosaic fields on open
+        document.getElementById('sesMosaic').checked = false;
+        document.getElementById('sesPanelNum').value = "";
+        document.getElementById('sesPanelTotal').value = "";
+        toggleMosaic();
+
         renderSessionList();
         document.getElementById('sessionModal').style.display = "block";
     }
@@ -306,7 +327,7 @@
         document.getElementById('sessionModal').style.display = "none";
         document.getElementById('sesCount').value = "";
         document.getElementById('sesTime').value = "";
-        render(); // Rafraichit la vue principale pour mettre à jour les heures
+        render(); 
     }
 
     function addSession() {
@@ -315,6 +336,7 @@
         
         const count = parseInt(document.getElementById('sesCount').value) || 0;
         const time = parseInt(document.getElementById('sesTime').value) || 0;
+        const isMosaic = document.getElementById('sesMosaic').checked;
         
         obj.sessions.push({
             id: Date.now(),
@@ -323,15 +345,19 @@
             count: count, time: time,
             filter: document.getElementById('sesFilter').value || '-',
             cam: document.getElementById('sesCam').value || '-',
-            scope: document.getElementById('sesScope').value || '-'
+            scope: document.getElementById('sesScope').value || '-',
+            isMosaic: isMosaic,
+            panelNum: isMosaic ? document.getElementById('sesPanelNum').value : null,
+            panelTotal: isMosaic ? document.getElementById('sesPanelTotal').value : null
         });
         
         saveAndRender();
         renderSessionList();
         
-        // Vider partiellement
         document.getElementById('sesCount').value = "";
         document.getElementById('sesTime').value = "";
+        document.getElementById('sesMosaic').checked = false;
+        toggleMosaic();
     }
 
     function deleteSession(sessionId) {
@@ -361,7 +387,6 @@
             displaySessions = obj.sessions.filter(s => s.project === currentProjectFilter);
         }
 
-        // Tri par date décroissante
         displaySessions.sort((a,b) => new Date(b.date) - new Date(a.date));
 
         displaySessions.forEach(s => {
@@ -369,12 +394,14 @@
             const hours = Math.floor(totalSec / 3600);
             const mins = Math.floor((totalSec % 3600) / 60);
             const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins} min`;
+            
+            const mosaicLabel = s.isMosaic ? `<span style="color:var(--highlight); font-size:0.8rem; margin-left:8px; border:1px solid var(--highlight); padding:2px 6px; border-radius:10px;">Mosaïque: Panneau ${s.panelNum}/${s.panelTotal}</span>` : '';
 
             const item = document.createElement('div');
             item.className = 'session-item';
             item.innerHTML = `
                 <div>
-                    <span class="session-title">[${s.project}] - ${s.date}</span>
+                    <span class="session-title">[${s.project}] - ${s.date} ${mosaicLabel}</span>
                     <div class="session-details">
                         <b>Intégration:</b> ${s.count} poses x ${s.time}s (${timeStr})<br>
                         <b>Matériel:</b> ${s.scope} | ${s.cam} | Filtre: ${s.filter}
@@ -407,7 +434,6 @@
             const vis = o.startIdx <= o.endIdx ? (currentMonthIndex >= o.startIdx && currentMonthIndex <= o.endIdx) : (currentMonthIndex >= o.startIdx || currentMonthIndex <= o.endIdx);
             const stellariumUrl = `https://stellarium-web.org/skysource/${o.ref.replace(/\s/g, '')}`;
             
-            // Calcul des badges de projets
             let projectBadgesHTML = '';
             if (o.sessions && o.sessions.length > 0) {
                 const projects = [...new Set(o.sessions.map(s => s.project))];
@@ -456,11 +482,7 @@
     function exportJSON() { const d = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(myObjects)); const a = document.createElement('a'); a.href = d; a.download = "astro_suivi_complet.json"; a.click(); }
     function importJSON(e) { const r = new FileReader(); r.onload = (e) => { try { myObjects = JSON.parse(e.target.result); saveAndRender(); } catch(err) { alert("Erreur JSON"); } }; r.readAsText(e.target.files[0]); }
     
-    // Enregistrement du Service Worker
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
-    }
-
+    if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js')); }
     setHemisphere('Sud');
 </script>
 </body>
