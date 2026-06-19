@@ -111,7 +111,6 @@
 
         .mosaic-container { background: rgba(241, 196, 15, 0.1); border-left: 3px solid var(--highlight); padding: 10px 15px; border-radius: 4px; display: none; margin-top: 10px; }
 
-        /* Styles pour le récapitulatif des filtres */
         .filter-summary { background: rgba(52, 152, 219, 0.1); border-left: 4px solid var(--accent); padding: 12px 15px; border-radius: 6px; margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 10px; }
         .filter-summary-item { background: rgba(0,0,0,0.4); padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.08); }
         .filter-summary-item strong { color: var(--highlight); }
@@ -410,6 +409,15 @@
         }
     }
 
+    function formatTime(totalSec) {
+        let h = Math.floor(totalSec / 3600);
+        let m = Math.floor((totalSec % 3600) / 60);
+        if (h > 0) {
+            return m > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${h}h`;
+        }
+        return `${m} min`;
+    }
+
     function renderSessionList() {
         const obj = myObjects.find(o => o.id === currentTargetId);
         const listDiv = document.getElementById('sessionList');
@@ -430,7 +438,6 @@
             displaySessions = obj.sessions.filter(s => s.project === currentProjectFilter);
         }
 
-        /* LOGIQUE DE CALCUL DU TEMPS PAR FILTRE */
         if(displaySessions.length > 0) {
             const filterTotals = {};
             displaySessions.forEach(s => {
@@ -444,14 +451,9 @@
             summaryContainer.innerHTML = '<h4 style="margin:0 0 8px 0; width:100%; font-size:0.8rem; color:#95a5a6; text-transform:uppercase; letter-spacing:0.5px;">Temps total par filtre :</h4>';
 
             Object.keys(filterTotals).forEach(f => {
-                const totalSec = filterTotals[f];
-                const hours = Math.floor(totalSec / 3600);
-                const mins = Math.floor((totalSec % 3600) / 60);
-                const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins} min`;
-
                 const summaryItem = document.createElement('span');
                 summaryItem.className = 'filter-summary-item';
-                summaryItem.innerHTML = `Filtre <b>${f}</b> : <strong>${timeStr}</strong>`;
+                summaryItem.innerHTML = `Filtre <b>${f}</b> : <strong>${formatTime(filterTotals[f])}</strong>`;
                 summaryContainer.appendChild(summaryItem);
             });
             summaryDiv.appendChild(summaryContainer);
@@ -460,11 +462,7 @@
         displaySessions.sort((a,b) => new Date(b.date) - new Date(a.date));
 
         displaySessions.forEach(s => {
-            const totalSec = s.count * s.time;
-            const hours = Math.floor(totalSec / 3600);
-            const mins = Math.floor((totalSec % 3600) / 60);
-            const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins} min`;
-            
+            const timeStr = formatTime(s.count * s.time);
             const mosaicLabel = s.isMosaic ? `<span style="color:var(--highlight); font-size:0.8rem; margin-left:8px; border:1px solid var(--highlight); padding:2px 6px; border-radius:10px;">Mosaïque: Panneau ${s.panelNum}/${s.panelTotal}</span>` : '';
 
             const item = document.createElement('div');
@@ -513,8 +511,17 @@
                 projects.forEach(p => {
                     let totalTimeSec = 0;
                     o.sessions.filter(s => s.project === p).forEach(s => totalTimeSec += (s.count * s.time));
-                    let hours = (totalTimeSec / 3600).toFixed(1);
-                    projectBadgesHTML += `<span class="project-badge" onclick="openSessions(${o.id}, '${p}')">📸 ${p} (${hours}h)</span>`;
+                    
+                    let h = Math.floor(totalTimeSec / 3600);
+                    let m = Math.floor((totalTimeSec % 3600) / 60);
+                    let timeStr = "";
+                    if (h > 0) {
+                        timeStr = m > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${h}h`;
+                    } else {
+                        timeStr = `${m}m`;
+                    }
+
+                    projectBadgesHTML += `<span class="project-badge" onclick="openSessions(${o.id}, '${p}')">📸 ${p} (${timeStr})</span>`;
                 });
             }
 
