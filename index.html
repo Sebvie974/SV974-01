@@ -98,14 +98,16 @@
         .project-badge:hover { background: var(--project); color: white; }
 
         .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); }
-        .modal-content { background: #161c27; margin: 5% auto; padding: 25px; border: 1px solid var(--project); width: 90%; max-width: 800px; border-radius: 12px; max-height: 85vh; overflow-y: auto; }
+        .modal-content { background: #161c27; margin: 5% auto; padding: 25px; border: 1px solid var(--project); width: 90%; max-width: 800px; border-radius: 12px; max-height: 85vh; overflow-y: auto; scroll-behavior: smooth; }
         .close-modal { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; line-height: 1; }
         .close-modal:hover { color: white; }
         
         .session-item { background: rgba(0,0,0,0.4); border-left: 4px solid var(--project); padding: 15px; margin-bottom: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
         .session-details { font-size: 0.85rem; color: #bdc3c7; line-height: 1.5; }
         .session-title { color: var(--highlight); font-weight: bold; font-size: 1rem; display: block; margin-bottom: 5px; }
-        .session-del { color: #e74c3c; background: none; border: none; cursor: pointer; font-size: 1.2rem; }
+        .session-btn-group { display: flex; gap: 15px; }
+        .session-action-btn { background: none; border: none; cursor: pointer; font-size: 1.2rem; padding: 0; transition: transform 0.2s; }
+        .session-action-btn:hover { transform: scale(1.2); }
 
         .mosaic-container { background: rgba(241, 196, 15, 0.1); border-left: 3px solid var(--highlight); padding: 10px 15px; border-radius: 4px; display: none; margin-top: 10px; }
     </style>
@@ -128,7 +130,7 @@
 <section class="admin-panel">
     <input type="hidden" id="editId">
     <div class="form-grid">
-        <div class="form-group"><label>Référence</label><input type="text" id="objRef" placeholder="M42, NGC..."></div>
+        <div class="form-group"><label>Référence</label><input type="text" id="objRef" placeholder="M42, IC2944..."></div>
         <div class="form-group"><label>Nom</label><input type="text" id="objName"></div>
         <div class="form-group">
             <label>Type</label>
@@ -188,7 +190,7 @@
 <div class="catalog" id="catalog"></div>
 
 <div id="sessionModal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content" id="modalContentDiv">
         <span class="close-modal" onclick="closeModal()">&times;</span>
         <h2 id="modalTitle" style="color: var(--project); margin-top:0;">Sessions d'Acquisition</h2>
         
@@ -214,7 +216,7 @@
                 </div>
 
                 <div class="full-width">
-                    <button class="btn-add" style="width:100%; background:var(--project); margin-top: 10px;" onclick="addSession()">VALIDER LA SESSION</button>
+                    <button id="btnSubmitSession" class="btn-add" style="width:100%; background:var(--project); margin-top: 10px;" onclick="saveSession()">VALIDER LA SESSION</button>
                 </div>
             </div>
         </div>
@@ -235,6 +237,7 @@
     let currentHemFilter = "Sud";
     let currentTargetId = null;
     let currentProjectFilter = null;
+    let currentEditSessionId = null; // Variable pour suivre l'édition d'une session
     const currentMonthIndex = new Date().getMonth();
 
     document.getElementById('sesDate').valueAsDate = new Date();
@@ -313,24 +316,30 @@
         
         if(projectName) document.getElementById('sesProject').value = projectName;
         
-        // Reset Mosaic fields on open
-        document.getElementById('sesMosaic').checked = false;
-        document.getElementById('sesPanelNum').value = "";
-        document.getElementById('sesPanelTotal').value = "";
-        toggleMosaic();
-
+        clearSessionForm();
         renderSessionList();
         document.getElementById('sessionModal').style.display = "block";
     }
 
     function closeModal() {
         document.getElementById('sessionModal').style.display = "none";
-        document.getElementById('sesCount').value = "";
-        document.getElementById('sesTime').value = "";
+        clearSessionForm();
         render(); 
     }
 
-    function addSession() {
+    function clearSessionForm() {
+        document.getElementById('sesCount').value = "";
+        document.getElementById('sesTime').value = "";
+        document.getElementById('sesMosaic').checked = false;
+        document.getElementById('sesPanelNum').value = "";
+        document.getElementById('sesPanelTotal').value = "";
+        toggleMosaic();
+        currentEditSessionId = null;
+        document.getElementById('btnSubmitSession').innerText = "VALIDER LA SESSION";
+        document.getElementById('btnSubmitSession').style.background = "var(--project)";
+    }
+
+    function saveSession() {
         const obj = myObjects.find(o => o.id === currentTargetId);
         if(!obj.sessions) obj.sessions = [];
         
@@ -338,8 +347,7 @@
         const time = parseInt(document.getElementById('sesTime').value) || 0;
         const isMosaic = document.getElementById('sesMosaic').checked;
         
-        obj.sessions.push({
-            id: Date.now(),
+        const sessionData = {
             project: document.getElementById('sesProject').value || 'Défaut',
             date: document.getElementById('sesDate').value,
             count: count, time: time,
@@ -349,15 +357,49 @@
             isMosaic: isMosaic,
             panelNum: isMosaic ? document.getElementById('sesPanelNum').value : null,
             panelTotal: isMosaic ? document.getElementById('sesPanelTotal').value : null
-        });
+        };
+
+        if (currentEditSessionId) {
+            // Modification
+            const sIndex = obj.sessions.findIndex(s => s.id === currentEditSessionId);
+            if (sIndex > -1) obj.sessions[sIndex] = { ...obj.sessions[sIndex], ...sessionData };
+        } else {
+            // Ajout
+            obj.sessions.push({ id: Date.now(), ...sessionData });
+        }
         
         saveAndRender();
         renderSessionList();
-        
-        document.getElementById('sesCount').value = "";
-        document.getElementById('sesTime').value = "";
-        document.getElementById('sesMosaic').checked = false;
+        clearSessionForm();
+    }
+
+    function editSession(sessionId) {
+        const obj = myObjects.find(o => o.id === currentTargetId);
+        const s = obj.sessions.find(x => x.id === sessionId);
+        if (!s) return;
+
+        currentEditSessionId = sessionId;
+
+        // Préremplir le formulaire
+        document.getElementById('sesProject').value = s.project || '';
+        document.getElementById('sesDate').value = s.date || '';
+        document.getElementById('sesCount').value = s.count || '';
+        document.getElementById('sesTime').value = s.time || '';
+        document.getElementById('sesFilter').value = s.filter || '';
+        document.getElementById('sesCam').value = s.cam || '';
+        document.getElementById('sesScope').value = s.scope || '';
+
+        document.getElementById('sesMosaic').checked = !!s.isMosaic;
+        document.getElementById('sesPanelNum').value = s.panelNum || '';
+        document.getElementById('sesPanelTotal').value = s.panelTotal || '';
         toggleMosaic();
+
+        // Changer l'apparence du bouton
+        document.getElementById('btnSubmitSession').innerText = "METTRE À JOUR LA SESSION";
+        document.getElementById('btnSubmitSession').style.background = "var(--success)";
+        
+        // Remonter en haut de la modale
+        document.getElementById('modalContentDiv').scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function deleteSession(sessionId) {
@@ -366,6 +408,7 @@
             obj.sessions = obj.sessions.filter(s => s.id !== sessionId);
             saveAndRender();
             renderSessionList();
+            if(currentEditSessionId === sessionId) clearSessionForm();
         }
     }
 
@@ -407,7 +450,10 @@
                         <b>Matériel:</b> ${s.scope} | ${s.cam} | Filtre: ${s.filter}
                     </div>
                 </div>
-                <button class="session-del" onclick="deleteSession(${s.id})" title="Supprimer session">🗑</button>
+                <div class="session-btn-group">
+                    <button class="session-action-btn" style="color:var(--accent)" onclick="editSession(${s.id})" title="Modifier session">✏️</button>
+                    <button class="session-action-btn" style="color:#e74c3c" onclick="deleteSession(${s.id})" title="Supprimer session">🗑</button>
+                </div>
             `;
             listDiv.appendChild(item);
         });
