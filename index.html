@@ -212,6 +212,7 @@
 
         <div class="file-actions">
             <button class="btn-tool" style="background:#34495e" onclick="openSettingsModal()">⚙️ Réglages (Lieux)</button>
+            <button class="btn-tool" style="background:#f39c12" onclick="openProjectModal()">📋 Projets</button>
             <button class="btn-tool" style="background:#c0392b" onclick="openGearModal()">🎒 Matériel</button>
             <button class="btn-tool" style="background:#e67e22" onclick="document.getElementById('bgInput').click()">🖼️ Fond</button>
             <button class="btn-tool" style="background:#27ae60" onclick="exportJSON()">💾 Exporter</button>
@@ -365,6 +366,46 @@
     </div>
 </div>
 
+<!-- MODALE DE GESTION DES PROJETS -->
+<div id="projectModal" class="modal">
+    <div class="modal-content" style="border-color: #f39c12; max-width: 600px;">
+        <span class="close-modal" onclick="closeProjectModal()">&times;</span>
+        <h2 style="color: #f39c12; margin-top:0;">📋 Mes Projets</h2>
+        <p style="font-size: 0.85rem; color: #95a5a6; margin-bottom: 20px;">Crée tes projets en associant une cible de ton catalogue à ton matériel.</p>
+        
+        <div class="admin-panel" style="margin-bottom: 20px; padding: 15px; box-shadow:none;">
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label>Nom du Projet</label>
+                    <input type="text" id="newProjName" placeholder="Ex: Mosaïque 4 panneaux, SHO Hubble...">
+                </div>
+                <div class="form-group full-width">
+                    <label>Cible Associée</label>
+                    <select id="newProjTarget"><option value="">-- Choisir une cible --</option></select>
+                </div>
+                <div class="form-group">
+                    <label>Caméra</label>
+                    <select id="newProjCam"><option value="-">-- Sél --</option></select>
+                </div>
+                <div class="form-group">
+                    <label>Lunette / Tube</label>
+                    <select id="newProjScope"><option value="-">-- Sél --</option></select>
+                </div>
+                <div class="form-group">
+                    <label>Filtre (Principal)</label>
+                    <select id="newProjFilter"><option value="-">-- Sél --</option></select>
+                </div>
+            </div>
+            <button class="btn-add" style="width:100%; background:#f39c12; margin-top:10px;" onclick="addProject()">CRÉER LE PROJET</button>
+        </div>
+
+        <div class="gear-section" style="background:transparent; border:none; padding:0;">
+            <label style="color:#ecf0f1;">Projets en cours</label>
+            <div id="listProjects" class="site-list"></div>
+        </div>
+    </div>
+</div>
+
 <!-- MODALE DE GESTION DES SESSIONS -->
 <div id="sessionModal" class="modal">
     <div class="modal-content" id="modalContentDiv">
@@ -373,7 +414,11 @@
         <div class="admin-panel" style="margin-bottom: 20px; padding: 15px; box-shadow:none;">
             <div class="form-grid">
                 <div class="form-grid" style="grid-column: 1 / -1; gap: 12px;">
-                    <div class="form-group"><label>Projet / Compo</label><input type="text" id="sesProject"></div>
+                    <div class="form-group"><label>Projet / Compo</label>
+                        <div class="form-group">
+                        <label>Projet Associé</label>
+                        <select id="sesProjectId"><option value="">-- Session Libre --</option></select>
+                    </div>
                     <div class="form-group"><label>Date</label><input type="date" id="sesDate"></div>
                     <div class="form-group"><label>Nb de Poses</label><input type="number" id="sesCount"></div>
                     <div class="form-group"><label>Temps Unitaire (s)</label><input type="number" id="sesTime"></div>
@@ -406,6 +451,7 @@
 
     let myObjects = JSON.parse(localStorage.getItem('astroData_v3')) || [];
     let myGear = JSON.parse(localStorage.getItem('astroGear_v1')) || { cameras: [], scopes: [], filters: [] };
+    let myProjects = JSON.parse(localStorage.getItem('astroProjects_v1')) || [];
     let mySites = JSON.parse(localStorage.getItem('astroSites_v1')) || [];
     let activeSiteId = localStorage.getItem('astroActiveSite') || null;
 
@@ -751,6 +797,65 @@
     populateGearSelects();
     function setSelectValue(sId, val) { const s = document.getElementById(sId); if (!val || val === '-') { s.value = '-'; return; } if (!Array.from(s.options).some(o => o.value === val)) s.add(new Option(`${val} (Ancien)`, val)); s.value = val; }
 
+    /* === FONCTIONS PROJETS === */
+    function openProjectModal() {
+        const targetSel = document.getElementById('newProjTarget');
+        targetSel.innerHTML = '<option value="">-- Choisir une cible --</option>';
+        myObjects.forEach(o => targetSel.add(new Option(`${o.ref} - ${o.name}`, o.id)));
+        
+        const pop = (type, selId) => {
+            const sel = document.getElementById(selId); sel.innerHTML = '<option value="-">-- Sél --</option>';
+            myGear[type].forEach(item => sel.add(new Option(item, item)));
+        };
+        pop('cameras', 'newProjCam'); pop('scopes', 'newProjScope'); pop('filters', 'newProjFilter');
+        
+        renderProjectList();
+        document.getElementById('projectModal').style.display = "block";
+    }
+    
+    function closeProjectModal() { document.getElementById('projectModal').style.display = "none"; render(); }
+    
+    function addProject() {
+        const name = document.getElementById('newProjName').value.trim();
+        const targetId = document.getElementById('newProjTarget').value;
+        const cam = document.getElementById('newProjCam').value;
+        const scope = document.getElementById('newProjScope').value;
+        const filter = document.getElementById('newProjFilter').value;
+        
+        if (!name || !targetId) { alert("Le nom et la cible sont obligatoires !"); return; }
+        
+        myProjects.push({ id: Date.now().toString(), name, targetId: parseInt(targetId), cam, scope, filter });
+        localStorage.setItem('astroProjects_v1', JSON.stringify(myProjects));
+        
+        document.getElementById('newProjName').value = '';
+        renderProjectList();
+    }
+    
+    function deleteProject(id) {
+        if(confirm("Supprimer ce projet ? Les sessions associées deviendront des sessions 'libres'.")) {
+            myProjects = myProjects.filter(p => p.id !== id);
+            localStorage.setItem('astroProjects_v1', JSON.stringify(myProjects));
+            renderProjectList();
+        }
+    }
+    
+    function renderProjectList() {
+        const c = document.getElementById('listProjects'); c.innerHTML = '';
+        if(myProjects.length === 0) { c.innerHTML = '<span style="color:#7f8c8d; font-size:0.85rem;">Aucun projet.</span>'; return; }
+        myProjects.forEach(p => {
+            const obj = myObjects.find(o => o.id === p.targetId);
+            const objName = obj ? obj.ref : "Cible supprimée";
+            c.innerHTML += `
+            <div class="site-item">
+                <div>
+                    <strong style="color:#f39c12;">${p.name}</strong> <span style="font-size:0.8rem; color:#aaa;">(${objName})</span><br>
+                    <span style="color:#95a5a6; font-size:0.8rem;">Setup: ${p.scope!=='-'?p.scope:'N/C'} | ${p.cam!=='-'?p.cam:'N/C'}</span>
+                </div>
+                <button class="gear-del" style="font-size:1.2rem;" onclick="deleteProject('${p.id}')">🗑</button>
+            </div>`;
+        });
+    }
+
     /* === CATALOGUE === */
     function addCustomObject() {
         myObjects.push({
@@ -791,11 +896,19 @@
 
     /* === SESSIONS === */
     function toggleMosaic() { document.getElementById('mosaicFields').style.display = document.getElementById('sesMosaic').checked ? 'grid' : 'none'; }
-    function openSessions(id, pName = null) {
-        currentTargetId = id; currentProjectFilter = pName;
-        const obj = myObjects.find(o => o.id === id); document.getElementById('modalTitle').innerText = `Acquisitions : ${obj.ref} - ${obj.name}`;
-        if(pName) document.getElementById('sesProject').value = pName;
-        populateGearSelects(); clearSessionForm(); renderSessionList(); document.getElementById('sessionModal').style.display = "block";
+    function openSessions(id, pId = null) {
+        currentTargetId = id; currentProjectFilter = pId;
+        const obj = myObjects.find(o => o.id === id); 
+        document.getElementById('modalTitle').innerText = `Acquisitions : ${obj.ref} - ${obj.name}`;
+        
+        // Remplir le menu déroulant des projets liés à cette cible
+        const projSel = document.getElementById('sesProjectId');
+        projSel.innerHTML = '<option value="">-- Session Libre --</option>';
+        myProjects.filter(p => p.targetId === id).forEach(p => projSel.add(new Option(`📋 ${p.name}`, p.id)));
+        if (pId) projSel.value = pId;
+
+        populateGearSelects(); clearSessionForm(); renderSessionList(); 
+        document.getElementById('sessionModal').style.display = "block";
     }
     function closeModal() { document.getElementById('sessionModal').style.display = "none"; clearSessionForm(); render(); }
     function clearSessionForm() {
@@ -805,14 +918,30 @@
     }
     function saveSession() {
         const obj = myObjects.find(o => o.id === currentTargetId);
+        const pId = document.getElementById('sesProjectId').value;
+        const projMatch = myProjects.find(p => p.id === pId);
+        
         const sData = {
-            project: document.getElementById('sesProject').value || 'Défaut', date: document.getElementById('sesDate').value,
-            count: parseInt(document.getElementById('sesCount').value)||0, time: parseInt(document.getElementById('sesTime').value)||0,
-            filter: document.getElementById('sesFilter').value, cam: document.getElementById('sesCam').value, scope: document.getElementById('sesScope').value,
-            isMosaic: document.getElementById('sesMosaic').checked, panelNum: document.getElementById('sesMosaic').checked ? document.getElementById('sesPanelNum').value : null, panelTotal: document.getElementById('sesMosaic').checked ? document.getElementById('sesPanelTotal').value : null
+            projectId: pId || null, 
+            project: projMatch ? projMatch.name : 'Défaut', // Rétrocompatibilité
+            date: document.getElementById('sesDate').value,
+            count: parseInt(document.getElementById('sesCount').value)||0, 
+            time: parseInt(document.getElementById('sesTime').value)||0,
+            filter: document.getElementById('sesFilter').value, 
+            cam: document.getElementById('sesCam').value, 
+            scope: document.getElementById('sesScope').value,
+            isMosaic: document.getElementById('sesMosaic').checked, 
+            panelNum: document.getElementById('sesMosaic').checked ? document.getElementById('sesPanelNum').value : null, 
+            panelTotal: document.getElementById('sesMosaic').checked ? document.getElementById('sesPanelTotal').value : null
         };
-        if (currentEditSessionId) { const sIdx = obj.sessions.findIndex(s => s.id === currentEditSessionId); if (sIdx > -1) obj.sessions[sIdx] = { ...obj.sessions[sIdx], ...sData }; } 
-        else { obj.sessions.push({ id: Date.now(), ...sData }); }
+        
+        if (currentEditSessionId) { 
+            const sIdx = obj.sessions.findIndex(s => s.id === currentEditSessionId); 
+            if (sIdx > -1) obj.sessions[sIdx] = { ...obj.sessions[sIdx], ...sData }; 
+        } else { 
+            obj.sessions.push({ id: Date.now(), ...sData }); 
+        }
+        
         saveAndRender(); renderSessionList(); clearSessionForm();
     }
     function editSession(sId) {
@@ -855,7 +984,35 @@
         data.forEach(o => {
             const vis = o.startIdx <= o.endIdx ? (currentMonthIndex >= o.startIdx && currentMonthIndex <= o.endIdx) : (currentMonthIndex >= o.startIdx || currentMonthIndex <= o.endIdx);
             const stUrl = `https://stellarium-web.org/skysource/${o.ref.replace(/\s/g, '')}`;
-            let pb = ''; if (o.sessions && o.sessions.length > 0) { [...new Set(o.sessions.map(s => s.project))].forEach(p => { let tt = 0; o.sessions.filter(s => s.project === p).forEach(s => tt += (s.count * s.time)); pb += `<span class="project-badge" onclick="openSessions(${o.id}, '${p}')">📸 ${p} (${formatTime(tt)})</span>`; }); }
+            // NOUVEL AFFICHAGE DES PROJETS DANS LA CARTE OBJET
+            let pb = ''; 
+            const objProjects = myProjects.filter(p => p.targetId === o.id);
+            
+            // 1. Afficher les projets formels
+            objProjects.forEach(p => {
+                let tt = 0;
+                if (o.sessions) o.sessions.filter(s => s.projectId === p.id || s.project === p.name).forEach(s => tt += (s.count * s.time));
+                pb += `
+                <div style="background: rgba(243, 156, 18, 0.1); border: 1px solid #f39c12; padding: 8px 12px; border-radius: 8px; margin-top: 10px; cursor: pointer; transition: 0.2s;" onclick="openSessions(${o.id}, '${p.id}')" onmouseover="this.style.background='rgba(243, 156, 18, 0.2)'" onmouseout="this.style.background='rgba(243, 156, 18, 0.1)'">
+                    <strong style="color:#f39c12; display:block; font-size:0.95rem;">📋 ${p.name}</strong>
+                    <div style="font-size:0.75rem; color:#bdc3c7; margin-top:3px;">Setup: ${p.scope!=='-'?p.scope:'N/C'} | ${p.cam!=='-'?p.cam:'N/C'}</div>
+                    <div style="font-size:0.8rem; color:var(--success); margin-top:4px; font-weight:bold;">Temps cumulé : ${formatTime(tt)}</div>
+                </div>`;
+            });
+            
+            // 2. Rétrocompatibilité (Anciennes sessions sans projet défini)
+            if (o.sessions) {
+                const legacySessions = o.sessions.filter(s => !s.projectId && !objProjects.some(proj => proj.name === s.project));
+                const legacyNames = [...new Set(legacySessions.map(s => s.project))];
+                if (legacyNames.length > 0) {
+                    pb += '<div class="project-badges-container" style="margin-top:10px;">';
+                    legacyNames.forEach(pName => { 
+                        let tt = 0; legacySessions.filter(s => s.project === pName).forEach(s => tt += (s.count * s.time)); 
+                        pb += `<span class="project-badge" onclick="openSessions(${o.id}, null)">📸 Héritage: ${pName} (${formatTime(tt)})</span>`; 
+                    });
+                    pb += '</div>';
+                }
+            }
             container.innerHTML += `<div class="card ${vis ? 'is-visible' : ''}">${o.order < 999 ? `<div class="order-badge">${o.order}</div>` : ''}<div class="card-actions"><button class="btn-icon" style="color:var(--project)" onclick="openSessions(${o.id})">📸</button><a href="${stUrl}" target="_blank" class="btn-icon">📡</a><button class="btn-icon" style="color:var(--accent)" onclick="editObject(${o.id})">✏️</button><button class="btn-icon" style="color:#e74c3c" onclick="deleteObject(${o.id})">🗑</button></div><div class="status-badge ${vis ? 'status-visible' : 'status-hidden'}">${vis ? '● Visible' : '○ Hors saison'}</div><br><span class="ref">${o.ref}</span><span class="obj-name">${o.name}</span><span class="obj-type">${o.type}</span><div style="font-size:0.75rem; color:#aaa;">${monthNames[o.startIdx]} — ${monthNames[o.endIdx]}</div><span class="obj-hem-tag">🌍 ${o.hem}</span>${pb ? `<div class="project-badges-container">${pb}</div>` : ''}${o.notes ? `<div class="notes-display">${o.notes}</div>` : ''}</div>`;
         });
     }
