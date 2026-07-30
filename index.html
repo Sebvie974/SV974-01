@@ -407,30 +407,20 @@
             const jdedeg = xml.querySelector("jdedeg");
             const aliases = xml.querySelectorAll("alias");
 
+            // 1. LE NOM (Filtre des codes catalogues)
             let bestName = "";
             if (aliases.length > 0) {
-                // Regex pour ignorer les codes de catalogues habituels
                 const catalogRegex = /^(M|NGC|IC|UGC|PGC|VdB|Sh2|HD|HR)\s*\d+/i;
                 for (let alias of aliases) {
                     let aliasText = alias.textContent.trim();
-                    // On cherche le premier alias qui ressemble à un vrai nom
-                    if (!catalogRegex.test(aliasText) && aliasText.length > 3) {
-                        bestName = aliasText;
-                        break;
-                    }
+                    if (!catalogRegex.test(aliasText) && aliasText.length > 3) { bestName = aliasText; break; }
                 }
             }
-            
-            // Assigne le nom trouvé (ou laisse vide si seulement des ref catalogues)
             document.getElementById('objName').value = bestName;
             
-            // Si SIMBAD ne renvoie aucune coordonnée, c'est que l'objet n'existe pas
-            if (!jradeg || !jdedeg) {
-                alert("Référence introuvable dans SIMBAD.");
-                btn.innerText = "🔍";
-                return;
-            }
+            if (!jradeg || !jdedeg) { alert("Référence introuvable dans SIMBAD."); btn.innerText = "🔍"; return; }
             
+            // 2. LE TYPE (Déjà implémenté, géré via otype)
             if (otype) {
                 const typeStr = otype.textContent, ts = document.getElementById('objType');
                 if (typeStr.includes('PN') || typeStr.includes('Planetary')) ts.value = 'Néb. Planétaire';
@@ -441,9 +431,35 @@
                 else ts.value = 'Autre';
             }
 
-            document.getElementById('objRa').value = parseFloat(jradeg.textContent).toFixed(4);
-            document.getElementById('objDec').value = parseFloat(jdedeg.textContent).toFixed(4);
+            const raDeg = parseFloat(jradeg.textContent);
+            const decDeg = parseFloat(jdedeg.textContent);
+            document.getElementById('objRa').value = raDeg.toFixed(4);
+            document.getElementById('objDec').value = decDeg.toFixed(4);
+
+            // 3. L'HÉMISPHÈRE (Automatique via la Déclinaison)
+            const hemSelect = document.getElementById('objHem');
+            if (decDeg > 15) hemSelect.value = "Nord";
+            else if (decDeg < -15) hemSelect.value = "Sud";
+            else hemSelect.value = "Nord & Sud";
+
+            // 4. LA PÉRIODE DE VISIBILITÉ (Automatique via l'Ascension Droite)
+            const raHours = raDeg / 15;
+            let bestMonth = Math.round((raHours - 8 + 24) % 24 / 2);
+            if (bestMonth === 12) bestMonth = 0;
             
+            // Crée une fenêtre de 6 mois autour du mois idéal
+            document.getElementById('monthStart').value = (bestMonth - 3 + 12) % 12;
+            document.getElementById('monthEnd').value = (bestMonth + 3) % 12;
+
+            // 5. VÉRIFICATION AVEC LE LIEU ACTIF
+            if (activeSiteId && mySites.length > 0) {
+                const site = mySites.find(s => s.id === activeSiteId);
+                const maxAlt = 90 - Math.abs(parseFloat(site.lat) - decDeg);
+                if (maxAlt < 15) {
+                    alert(`Attention : Depuis ton lieu sélectionné (${site.name}), cet objet ne montera qu'à un maximum de ${maxAlt.toFixed(1)}° d'élévation. Il risque d'être très bas sur l'horizon pour la photo !`);
+                }
+            }
+
         } catch (err) { alert("Erreur connexion SIMBAD."); }
         btn.innerText = "🔍";
     }
