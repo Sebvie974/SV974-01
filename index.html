@@ -413,9 +413,8 @@
         <h2 id="modalTitle" style="color: var(--project); margin-top:0;">Sessions d'Acquisition</h2>
         <div class="admin-panel" style="margin-bottom: 20px; padding: 15px; box-shadow:none;">
             <div class="form-grid">
-                <div class="form-grid" style="grid-column: 1 / -1; gap: 12px;">
-                    <div class="form-group"><label>Projet / Compo</label>
-                        <div class="form-group">
+                <div class="form-grid" style="grid-column: 1 / -1; gap: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
+                    <div class="form-group full-width">
                         <label>Projet Associé</label>
                         <select id="sesProjectId"><option value="">-- Session Libre --</option></select>
                     </div>
@@ -912,9 +911,20 @@
     }
     function closeModal() { document.getElementById('sessionModal').style.display = "none"; clearSessionForm(); render(); }
     function clearSessionForm() {
-        document.getElementById('sesCount').value = ""; document.getElementById('sesTime').value = ""; document.getElementById('sesFilter').value = "-"; document.getElementById('sesCam').value = "-"; document.getElementById('sesScope').value = "-";
-        document.getElementById('sesMosaic').checked = false; document.getElementById('sesPanelNum').value = ""; document.getElementById('sesPanelTotal').value = "";
-        toggleMosaic(); currentEditSessionId = null; document.getElementById('btnSubmitSession').innerText = "VALIDER LA SESSION"; document.getElementById('btnSubmitSession').style.background = "var(--project)";
+        document.getElementById('sesProjectId').value = ""; 
+        document.getElementById('sesCount').value = ""; 
+        document.getElementById('sesTime').value = ""; 
+        document.getElementById('sesFilter').value = "-"; 
+        document.getElementById('sesCam').value = "-"; 
+        document.getElementById('sesScope').value = "-";
+        document.getElementById('sesMosaic').checked = false; 
+        document.getElementById('sesPanelNum').value = ""; 
+        document.getElementById('sesPanelTotal').value = "";
+        
+        toggleMosaic(); 
+        currentEditSessionId = null; 
+        document.getElementById('btnSubmitSession').innerText = "VALIDER LA SESSION"; 
+        document.getElementById('btnSubmitSession').style.background = "var(--project)";
     }
     function saveSession() {
         const obj = myObjects.find(o => o.id === currentTargetId);
@@ -945,12 +955,36 @@
         saveAndRender(); renderSessionList(); clearSessionForm();
     }
     function editSession(sId) {
-        const obj = myObjects.find(o => o.id === currentTargetId), s = obj.sessions.find(x => x.id === sId); if (!s) return;
+        const obj = myObjects.find(o => o.id === currentTargetId);
+        const s = obj.sessions.find(x => x.id === sId); 
+        if (!s) return;
+        
         currentEditSessionId = sId;
-        document.getElementById('sesProject').value = s.project||''; document.getElementById('sesDate').value = s.date||''; document.getElementById('sesCount').value = s.count||''; document.getElementById('sesTime').value = s.time||'';
-        setSelectValue('sesFilter', s.filter); setSelectValue('sesCam', s.cam); setSelectValue('sesScope', s.scope);
-        document.getElementById('sesMosaic').checked = !!s.isMosaic; document.getElementById('sesPanelNum').value = s.panelNum||''; document.getElementById('sesPanelTotal').value = s.panelTotal||'';
-        toggleMosaic(); document.getElementById('btnSubmitSession').innerText = "METTRE À JOUR"; document.getElementById('btnSubmitSession').style.background = "var(--success)"; document.getElementById('modalContentDiv').scrollTo({ top: 0, behavior: 'smooth' });
+        
+        // Rétrocompatibilité ou attribution du projet
+        if (s.projectId) {
+            document.getElementById('sesProjectId').value = s.projectId;
+        } else {
+            document.getElementById('sesProjectId').value = "";
+        }
+        
+        document.getElementById('sesDate').value = s.date || ''; 
+        document.getElementById('sesCount').value = s.count || ''; 
+        document.getElementById('sesTime').value = s.time || '';
+        
+        setSelectValue('sesFilter', s.filter); 
+        setSelectValue('sesCam', s.cam); 
+        setSelectValue('sesScope', s.scope);
+        
+        document.getElementById('sesMosaic').checked = !!s.isMosaic; 
+        document.getElementById('sesPanelNum').value = s.panelNum || ''; 
+        document.getElementById('sesPanelTotal').value = s.panelTotal || '';
+        
+        toggleMosaic(); 
+        
+        document.getElementById('btnSubmitSession').innerText = "METTRE À JOUR"; 
+        document.getElementById('btnSubmitSession').style.background = "var(--success)"; 
+        document.getElementById('modalContentDiv').scrollTo({ top: 0, behavior: 'smooth' });
     }
     function deleteSession(sId) {
         if(confirm("Supprimer ?")) { const obj = myObjects.find(o => o.id === currentTargetId); obj.sessions = obj.sessions.filter(s => s.id !== sId); saveAndRender(); renderSessionList(); if(currentEditSessionId === sId) clearSessionForm(); }
