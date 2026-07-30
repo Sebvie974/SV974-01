@@ -42,6 +42,14 @@
             border-radius: 12px; border: 1px solid #34495e; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
+        .admin-toggle {
+            display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer; font-weight: bold; color: var(--accent);
+            padding: 5px 10px; font-size: 1.1rem; border-radius: 8px; transition: 0.2s;
+        }
+        .admin-toggle:hover { background: rgba(255,255,255,0.05); }
+        .admin-content { display: none; padding-top: 20px; border-top: 1px solid #34495e; margin-top: 15px; }
+
         .form-grid {
             display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
             gap: 12px; margin-bottom: 20px;
@@ -146,63 +154,71 @@
 </header>
 
 <section class="admin-panel">
-    <input type="hidden" id="editId">
-    <div class="form-grid">
-        <div class="form-group">
-            <label>Référence</label>
-            <div style="display:flex; gap:5px;">
-                <!-- Ajout de min-width: 50px pour empêcher le champ de pousser le bouton -->
-                <input type="text" id="objRef" placeholder="M42, IC2944..." style="flex:1; min-width: 50px;">
-                <button id="simbadBtn" class="btn-add" style="padding: 0 10px; height: auto;" onclick="searchSimbad()" title="Rechercher infos sur SIMBAD">🔍</button>
+    <!-- Barre d'onglet refermable -->
+    <div class="admin-toggle" onclick="toggleAdminPanel()">
+        <span>🛠️ Formulaire d'ajout & Outils</span>
+        <span id="adminToggleIcon">▼</span>
+    </div>
+    
+    <!-- Contenu masqué par défaut -->
+    <div id="adminContent" class="admin-content">
+        <input type="hidden" id="editId">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Référence</label>
+                <div style="display:flex; gap:5px;">
+                    <input type="text" id="objRef" placeholder="M42, IC2944..." style="flex:1; min-width: 50px;">
+                    <button id="simbadBtn" class="btn-add" style="padding: 0 10px; height: auto;" onclick="searchSimbad()" title="Rechercher infos sur SIMBAD">🔍</button>
+                </div>
+            </div>
+            <div class="form-group"><label>Nom</label><input type="text" id="objName"></div>
+            <div class="form-group">
+                <label>Type</label>
+                <select id="objType">
+                    <option value="Nébuleuse">Nébuleuse</option>
+                    <option value="Galaxie">Galaxie</option>
+                    <option value="Amas Ouvert">Amas Ouvert</option>
+                    <option value="Amas Globulaire">Amas Globulaire</option>
+                    <option value="Néb. Planétaire">Néb. Planétaire</option>
+                    <option value="Autre">Autre</option>
+                </select>
+            </div>
+            <div class="form-group"><label>RA (Coordonnées)</label><input type="text" id="objRa" readonly style="background:rgba(0,0,0,0.3); color:#7f8c8d;" placeholder="Auto (Simbad)"></div>
+            <div class="form-group"><label>DEC (Coordonnées)</label><input type="text" id="objDec" readonly style="background:rgba(0,0,0,0.3); color:#7f8c8d;" placeholder="Auto (Simbad)"></div>
+            
+            <div class="form-group"><label>Début Visibilité</label><select id="monthStart"></select></div>
+            <div class="form-group"><label>Fin Visibilité</label><select id="monthEnd"></select></div>
+            <div class="form-group">
+                <label>Hémisphère (Héritage)</label>
+                <select id="objHem">
+                    <option value="Nord">Nord</option>
+                    <option value="Sud">Sud</option>
+                    <option value="Nord & Sud">Nord & Sud</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Ordre Photo</label>
+                <input type="number" id="objOrder" placeholder="N°" min="1">
+            </div>
+            <div class="form-group full-width">
+                <label>Notes globales (Aperçu rapide)</label>
+                <textarea id="objNotes" placeholder="Ex: Cible facile, éviter pleine lune..."></textarea>
+            </div>
+            <div class="full-width" style="display: flex; gap: 10px;">
+                <button id="addBtn" class="btn-add" style="flex:2" onclick="addCustomObject()">AJOUTER CIBLE</button>
+                <button id="updateBtn" class="btn-add btn-update" style="flex:2" onclick="updateObject()">ENREGISTRER MODIFS</button>
             </div>
         </div>
-        <div class="form-group"><label>Nom</label><input type="text" id="objName"></div>
-        <div class="form-group">
-            <label>Type</label>
-            <select id="objType">
-                <option value="Nébuleuse">Nébuleuse</option>
-                <option value="Galaxie">Galaxie</option>
-                <option value="Amas Ouvert">Amas Ouvert</option>
-                <option value="Amas Globulaire">Amas Globulaire</option>
-                <option value="Néb. Planétaire">Néb. Planétaire</option>
-                <option value="Autre">Autre</option>
-            </select>
-        </div>
-        <div class="form-group"><label>RA (Coordonnées)</label><input type="text" id="objRa" readonly style="background:rgba(0,0,0,0.3); color:#7f8c8d;" placeholder="Auto (Simbad)"></div>
-        <div class="form-group"><label>DEC (Coordonnées)</label><input type="text" id="objDec" readonly style="background:rgba(0,0,0,0.3); color:#7f8c8d;" placeholder="Auto (Simbad)"></div>
-        
-        <div class="form-group"><label>Début Visibilité</label><select id="monthStart"></select></div>
-        <div class="form-group"><label>Fin Visibilité</label><select id="monthEnd"></select></div>
-        <div class="form-group">
-            <label>Hémisphère (Héritage)</label>
-            <select id="objHem">
-                <option value="Nord">Nord</option>
-                <option value="Sud">Sud</option>
-                <option value="Nord & Sud">Nord & Sud</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label>Ordre Photo</label>
-            <input type="number" id="objOrder" placeholder="N°" min="1">
-        </div>
-        <div class="form-group full-width">
-            <label>Notes globales (Aperçu rapide)</label>
-            <textarea id="objNotes" placeholder="Ex: Cible facile, éviter pleine lune..."></textarea>
-        </div>
-        <div class="full-width" style="display: flex; gap: 10px;">
-            <button id="addBtn" class="btn-add" style="flex:2" onclick="addCustomObject()">AJOUTER CIBLE</button>
-            <button id="updateBtn" class="btn-add btn-update" style="flex:2" onclick="updateObject()">ENREGISTRER MODIFS</button>
-        </div>
-    </div>
 
-    <div class="file-actions">
-        <button class="btn-tool" style="background:#34495e" onclick="openSettingsModal()">⚙️ Réglages (Lieux)</button>
-        <button class="btn-tool" style="background:#c0392b" onclick="openGearModal()">🎒 Matériel</button>
-        <button class="btn-tool" style="background:#e67e22" onclick="document.getElementById('bgInput').click()">🖼️ Fond</button>
-        <button class="btn-tool" style="background:#27ae60" onclick="exportJSON()">💾 Exporter</button>
-        <button class="btn-tool" style="background:#8e44ad" onclick="document.getElementById('fileInput').click()">📂 Importer</button>
-        <input type="file" id="bgInput" style="display:none" accept="image/*" onchange="changeBackground(event)">
-        <input type="file" id="fileInput" style="display:none" accept=".json" onchange="importJSON(event)">
+        <div class="file-actions">
+            <button class="btn-tool" style="background:#34495e" onclick="openSettingsModal()">⚙️ Réglages (Lieux)</button>
+            <button class="btn-tool" style="background:#c0392b" onclick="openGearModal()">🎒 Matériel</button>
+            <button class="btn-tool" style="background:#e67e22" onclick="document.getElementById('bgInput').click()">🖼️ Fond</button>
+            <button class="btn-tool" style="background:#27ae60" onclick="exportJSON()">💾 Exporter</button>
+            <button class="btn-tool" style="background:#8e44ad" onclick="document.getElementById('fileInput').click()">📂 Importer</button>
+            <input type="file" id="bgInput" style="display:none" accept="image/*" onchange="changeBackground(event)">
+            <input type="file" id="fileInput" style="display:none" accept=".json" onchange="importJSON(event)">
+        </div>
     </div>
 </section>
 
@@ -413,6 +429,18 @@
 
     const savedBG = localStorage.getItem('astro_bg_stable');
     if(savedBG) document.body.style.backgroundImage = `url(${savedBG})`;
+
+    function toggleAdminPanel(forceOpen = false) {
+        const content = document.getElementById('adminContent');
+        const icon = document.getElementById('adminToggleIcon');
+        if (forceOpen || content.style.display === 'none' || content.style.display === '') {
+            content.style.display = 'block';
+            icon.innerText = '▲';
+        } else {
+            content.style.display = 'none';
+            icon.innerText = '▼';
+        }
+    }
 
     /* === RECHERCHE API SIMBAD === */
     async function searchSimbad() {
@@ -736,12 +764,24 @@
     }
     function editObject(id) {
         const o = myObjects.find(obj => obj.id === id);
-        document.getElementById('editId').value = o.id; document.getElementById('objRef').value = o.ref; document.getElementById('objName').value = o.name;
-        document.getElementById('objType').value = o.type; document.getElementById('objNotes').value = o.notes || "";
-        document.getElementById('objRa').value = o.ra || ""; document.getElementById('objDec').value = o.dec || "";
+        document.getElementById('editId').value = o.id; 
+        document.getElementById('objRef').value = o.ref; 
+        document.getElementById('objName').value = o.name;
+        document.getElementById('objType').value = o.type; 
+        document.getElementById('objNotes').value = o.notes || "";
+        if (document.getElementById('objRa')) document.getElementById('objRa').value = o.ra || ""; 
+        if (document.getElementById('objDec')) document.getElementById('objDec').value = o.dec || "";
         document.getElementById('objOrder').value = o.order === 999 ? "" : o.order;
-        document.getElementById('monthStart').value = o.startIdx; document.getElementById('monthEnd').value = o.endIdx; document.getElementById('objHem').value = o.hem;
-        document.getElementById('addBtn').style.display = 'none'; document.getElementById('updateBtn').style.display = 'block'; window.scrollTo({ top: 0, behavior: 'smooth' });
+        document.getElementById('monthStart').value = o.startIdx; 
+        document.getElementById('monthEnd').value = o.endIdx; 
+        document.getElementById('objHem').value = o.hem;
+        
+        document.getElementById('addBtn').style.display = 'none'; 
+        document.getElementById('updateBtn').style.display = 'block'; 
+        
+        // Force l'ouverture du panneau d'administration
+        toggleAdminPanel(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     function updateObject() {
         const id = parseInt(document.getElementById('editId').value), idx = myObjects.findIndex(o => o.id === id);
