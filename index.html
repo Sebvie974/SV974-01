@@ -235,7 +235,7 @@
     <div class="modal-content" style="border-color: #34495e; max-width: 600px;">
         <span class="close-modal" onclick="closeSettingsModal()">&times;</span>
         <h2 style="color: #ecf0f1; margin-top:0;">⚙️ Réglages (Lieux d'observation)</h2>
-        <p style="font-size: 0.85rem; color: #95a5a6; margin-bottom: 20px;">Défini tes lieux d'observation pour le calcul de visibilité des cibles (Élévation maximale).</p>
+        <p style="font-size: 0.85rem; color: #95a5a6; margin-bottom: 20px;">Défini tes lieux, leurs contraintes d'horizon et la hauteur minimale d'imagerie.</p>
 
         <div class="gear-section">
             <label style="color:#3498db;">Ajouter un lieu</label>
@@ -244,6 +244,16 @@
                 <div style="display:flex; gap:10px;">
                     <input type="number" id="siteLat" placeholder="Latitude (Ex: -21.3)" step="0.0001" style="flex:1">
                     <input type="number" id="siteLon" placeholder="Longitude (Ex: 55.6)" step="0.0001" style="flex:1">
+                    <input type="number" id="siteMinAlt" placeholder="Alt. Min (Ex: 20°)" style="flex:1">
+                </div>
+                <div style="margin-top:5px; background:rgba(0,0,0,0.5); padding:10px; border-radius:6px; border:1px solid #34495e;">
+                    <label style="color:#95a5a6; font-size:0.75rem;">Horizons dégagés (Coche les directions visibles) :</label>
+                    <div style="display:flex; gap:15px; margin-top:5px; color:white; font-size:0.85rem;">
+                        <label><input type="checkbox" id="siteVueN" checked> Nord</label>
+                        <label><input type="checkbox" id="siteVueS" checked> Sud</label>
+                        <label><input type="checkbox" id="siteVueE" checked> Est</label>
+                        <label><input type="checkbox" id="siteVueO" checked> Ouest</label>
+                    </div>
                 </div>
                 <button class="btn-add" style="background:#3498db" onclick="addSite()">AJOUTER CE LIEU</button>
             </div>
@@ -451,12 +461,20 @@
             document.getElementById('monthStart').value = (bestMonth - 3 + 12) % 12;
             document.getElementById('monthEnd').value = (bestMonth + 3) % 12;
 
-            // 5. VÉRIFICATION AVEC LE LIEU ACTIF
+            // 5. VÉRIFICATION AVEC LE LIEU ACTIF ET SES CONTRAINTES
             if (activeSiteId && mySites.length > 0) {
                 const site = mySites.find(s => s.id === activeSiteId);
+                const minAlt = site.minAlt !== undefined ? site.minAlt : 20;
                 const maxAlt = 90 - Math.abs(parseFloat(site.lat) - decDeg);
-                if (maxAlt < 15) {
-                    alert(`Attention : Depuis ton lieu sélectionné (${site.name}), cet objet ne montera qu'à un maximum de ${maxAlt.toFixed(1)}° d'élévation. Il risque d'être très bas sur l'horizon pour la photo !`);
+                const transitDir = decDeg > parseFloat(site.lat) ? "NORD" : "SUD";
+                
+                let warning = "";
+                if (maxAlt < minAlt) warning += `- Élévation max (${maxAlt.toFixed(1)}°) inférieure à ton minimum (${minAlt}°).\n`;
+                if (transitDir === "NORD" && !site.viewN) warning += `- Transit au NORD (horizon désactivé pour ce lieu).\n`;
+                if (transitDir === "SUD" && !site.viewS) warning += `- Transit au SUD (horizon désactivé pour ce lieu).\n`;
+                
+                if (warning) {
+                    alert(`⚠️ Contraintes pour le lieu "${site.name}" :\n${warning}\n(Tu pourras toujours l'imager depuis un autre de tes lieux)`);
                 }
             }
 
@@ -472,28 +490,42 @@
         resultsDiv.innerHTML = '';
         let count = 0;
         
+        const minAlt = site.minAlt !== undefined ? site.minAlt : 20;
+        
         myObjects.forEach(o => {
             if (o.dec !== undefined && o.dec !== "") {
                 const dec = parseFloat(o.dec);
                 const lat = parseFloat(site.lat);
                 
-                // Formule de l'élévation au transit : 90 - | Latitude - Déclinaison |
+                // Visibilité globale
                 const maxAlt = 90 - Math.abs(lat - dec);
                 
-                // On affiche la cible si elle dépasse 20° au-dessus de l'horizon
-                if (maxAlt >= 20) {
+                // Si l'objet dépasse l'horizon (0°) de façon absolue
+                if (maxAlt > 0) {
+                    const transitDir = dec > lat ? "NORD" : "SUD";
+                    let dirOk = true;
+                    if (transitDir === "NORD" && !site.viewN) dirOk = false;
+                    if (transitDir === "SUD" && !site.viewS) dirOk = false;
+                    
+                    // Visibilité personnelle (Contraintes du lieu)
+                    const isVisiblePersonally = maxAlt >= minAlt && dirOk;
                     const vis = (o.startIdx <= o.endIdx ? (currentMonthIndex >= o.startIdx && currentMonthIndex <= o.endIdx) : (currentMonthIndex >= o.startIdx || currentMonthIndex <= o.endIdx));
                     
+                    const statusColor = isVisiblePersonally ? '#2ecc71' : '#e74c3c';
+                    const statusText = isVisiblePersonally ? 'Jouable' : 'Bloqué / Trop bas';
+                    
                     resultsDiv.innerHTML += `
-                        <div style="background: rgba(0,0,0,0.4); border-left: 4px solid ${vis ? '#2ecc71' : '#e74c3c'}; padding: 15px; margin-bottom: 10px; border-radius: 4px; text-align: left; display:flex; justify-content: space-between; align-items:center;">
+                        <div style="background: rgba(0,0,0,0.4); border-left: 4px solid ${statusColor}; padding: 15px; margin-bottom: 10px; border-radius: 4px; text-align: left; display:flex; justify-content: space-between; align-items:center;">
                             <div>
                                 <strong style="color:var(--highlight); font-size:1.1rem;">${o.ref}</strong> - ${o.name} <span style="font-size:0.75rem; color:#aaa; margin-left:10px;">(${o.type})</span>
                                 <div style="font-size:0.85rem; color:#bdc3c7; margin-top:5px;">
-                                    Élévation Max : <b style="color:white;">${maxAlt.toFixed(1)}°</b> | Déclinaison spatiale : ${dec}°
+                                    Élévation Max : <b style="color:white;">${maxAlt.toFixed(1)}°</b> (Min. requis: ${minAlt}°)<br>
+                                    Transit au <b style="color:${dirOk ? 'white' : '#e74c3c'}">${transitDir}</b>
                                 </div>
                             </div>
-                            <div style="font-size: 0.85rem; font-weight:bold; color: ${vis ? '#2ecc71' : '#e74c3c'}; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius: 12px;">
-                                ${vis ? 'Période Idéale' : 'Hors Saison'}
+                            <div style="font-size: 0.85rem; font-weight:bold; color: ${statusColor}; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius: 12px; display:flex; flex-direction:column; align-items:center; gap:5px;">
+                                <span>${statusText}</span>
+                                <span style="font-size:0.7rem; color:${vis ? '#2ecc71' : '#95a5a6'};">${vis ? '(Période OK)' : '(Hors Saison)'}</span>
                             </div>
                         </div>
                     `;
@@ -503,7 +535,7 @@
         });
         
         if(count === 0) {
-            resultsDiv.innerHTML = '<p style="color:#e74c3c;">Aucune cible calculable. Utilise la recherche 🔍 SIMBAD sur tes cibles pour récupérer leurs coordonnées spatiales (DEC) !</p>';
+            resultsDiv.innerHTML = '<p style="color:#e74c3c;">Aucune cible n\'est au-dessus de l\'horizon global (0°).</p>';
         }
     }
 
@@ -511,11 +543,28 @@
     function openSettingsModal() { renderSitesList(); document.getElementById('settingsModal').style.display = "block"; }
     function closeSettingsModal() { document.getElementById('settingsModal').style.display = "none"; populateSiteSelect(); }
     function addSite() {
-        const name = document.getElementById('siteName').value.trim(); const lat = parseFloat(document.getElementById('siteLat').value); const lon = parseFloat(document.getElementById('siteLon').value);
+        const name = document.getElementById('siteName').value.trim(); 
+        const lat = parseFloat(document.getElementById('siteLat').value); 
+        const lon = parseFloat(document.getElementById('siteLon').value);
+        const minAlt = parseFloat(document.getElementById('siteMinAlt').value) || 20; // 20° par défaut
+        const viewN = document.getElementById('siteVueN').checked;
+        const viewS = document.getElementById('siteVueS').checked;
+        const viewE = document.getElementById('siteVueE').checked;
+        const viewW = document.getElementById('siteVueO').checked;
+
         if(!name || isNaN(lat) || isNaN(lon)) { alert("Erreur saisie lieu."); return; }
-        const newSite = { id: Date.now().toString(), name, lat, lon }; mySites.push(newSite); localStorage.setItem('astroSites_v1', JSON.stringify(mySites));
+        
+        const newSite = { id: Date.now().toString(), name, lat, lon, minAlt, viewN, viewS, viewE, viewW }; 
+        mySites.push(newSite); 
+        localStorage.setItem('astroSites_v1', JSON.stringify(mySites));
+        
         if(!activeSiteId) { activeSiteId = newSite.id; localStorage.setItem('astroActiveSite', activeSiteId); }
-        document.getElementById('siteName').value = ''; document.getElementById('siteLat').value = ''; document.getElementById('siteLon').value = ''; renderSitesList();
+        
+        document.getElementById('siteName').value = ''; 
+        document.getElementById('siteLat').value = ''; 
+        document.getElementById('siteLon').value = ''; 
+        document.getElementById('siteMinAlt').value = '';
+        renderSitesList();
     }
     function deleteSite(id) {
         mySites = mySites.filter(s => s.id !== id); localStorage.setItem('astroSites_v1', JSON.stringify(mySites));
@@ -524,7 +573,18 @@
     function renderSitesList() {
         const c = document.getElementById('listSites'); c.innerHTML = '';
         if(mySites.length===0) { c.innerHTML='<span style="color:#7f8c8d; font-size:0.85rem;">Aucun lieu.</span>'; return; }
-        mySites.forEach(s => { c.innerHTML += `<div class="site-item"><div><strong style="color:var(--accent);">${s.name}</strong><br><span style="color:#95a5a6; font-size:0.8rem;">Lat: ${s.lat} | Lon: ${s.lon}</span></div><button class="gear-del" style="font-size:1.2rem;" onclick="deleteSite('${s.id}')">🗑</button></div>`; });
+        mySites.forEach(s => { 
+            const vN = s.viewN ? 'N' : ''; const vS = s.viewS ? 'S' : ''; const vE = s.viewE ? 'E' : ''; const vW = s.viewW ? 'O' : '';
+            c.innerHTML += `
+            <div class="site-item">
+                <div>
+                    <strong style="color:var(--accent);">${s.name}</strong><br>
+                    <span style="color:#95a5a6; font-size:0.8rem;">Lat: ${s.lat} | Lon: ${s.lon} | Alt Min: ${s.minAlt||20}°</span><br>
+                    <span style="color:#f1c40f; font-size:0.75rem;">Horizons OK: [ ${vN} ${vS} ${vE} ${vW} ]</span>
+                </div>
+                <button class="gear-del" style="font-size:1.2rem;" onclick="deleteSite('${s.id}')">🗑</button>
+            </div>`; 
+        });
     }
     function populateSiteSelect() {
         const sel = document.getElementById('activeSiteSelect'); sel.innerHTML = '';
