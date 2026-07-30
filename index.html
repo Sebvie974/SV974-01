@@ -167,7 +167,9 @@
                 <option value="Autre">Autre</option>
             </select>
         </div>
-        <!-- Pour la rétrocompatibilité avant calcul complet, on garde la saisie manuelle -->
+        <div class="form-group"><label>RA (Coordonnées)</label><input type="text" id="objRa" readonly style="background:rgba(0,0,0,0.3); color:#7f8c8d;" placeholder="Auto (Simbad)"></div>
+        <div class="form-group"><label>DEC (Coordonnées)</label><input type="text" id="objDec" readonly style="background:rgba(0,0,0,0.3); color:#7f8c8d;" placeholder="Auto (Simbad)"></div>
+        
         <div class="form-group"><label>Début Visibilité</label><select id="monthStart"></select></div>
         <div class="form-group"><label>Fin Visibilité</label><select id="monthEnd"></select></div>
         <div class="form-group">
@@ -222,7 +224,6 @@
         <option value="ref">Tri : Référence A-Z</option>
     </select>
     
-    <!-- Bouton pour le futur outil de calcul des cibles visibles -->
     <button class="btn-tool" style="background:#8e44ad; padding: 10px 20px; border-radius: 20px;" onclick="openVisibilityModal()">🌠 Cibles Visibles (Calcul)</button>
 </div>
 
@@ -233,7 +234,7 @@
     <div class="modal-content" style="border-color: #34495e; max-width: 600px;">
         <span class="close-modal" onclick="closeSettingsModal()">&times;</span>
         <h2 style="color: #ecf0f1; margin-top:0;">⚙️ Réglages (Lieux d'observation)</h2>
-        <p style="font-size: 0.85rem; color: #95a5a6; margin-bottom: 20px;">Défini tes lieux d'observation pour permettre le futur calcul de visibilité automatique des cibles.</p>
+        <p style="font-size: 0.85rem; color: #95a5a6; margin-bottom: 20px;">Défini tes lieux d'observation pour le calcul de visibilité des cibles (Élévation maximale).</p>
 
         <div class="gear-section">
             <label style="color:#3498db;">Ajouter un lieu</label>
@@ -254,12 +255,12 @@
     </div>
 </div>
 
-<!-- MODALE OUTIL VISIBILITE (Stub) -->
+<!-- MODALE OUTIL VISIBILITE -->
 <div id="visibilityModal" class="modal">
     <div class="modal-content" style="border-color: #8e44ad; max-width: 800px;">
         <span class="close-modal" onclick="document.getElementById('visibilityModal').style.display='none'">&times;</span>
         <h2 style="color: #8e44ad; margin-top:0;">🌠 Cibles Visibles</h2>
-        <p style="font-size: 0.9rem; color: #ccc;">Cet outil calculera les meilleures cibles à photographier depuis le lieu sélectionné (<strong id="visModalSiteName">...</strong>) selon ton matériel.</p>
+        <p style="font-size: 0.9rem; color: #ccc;">Ce moteur de calcul compare la <b>Latitude</b> de ton site (<strong id="visModalSiteName">...</strong>) avec la <b>Déclinaison spatiale</b> de tes cibles.</p>
         
         <div class="admin-panel" style="margin-bottom: 20px; padding: 15px; box-shadow:none;">
             <div class="form-grid">
@@ -276,11 +277,13 @@
                     <select id="visScopeSel"><option value="all">Tous</option></select>
                 </div>
             </div>
-            <button class="btn-add" style="width:100%; background:#8e44ad; margin-top:10px;" onclick="alert('Le moteur de calcul astronomique sera implémenté dans la prochaine étape !')">LANCER LE CALCUL (Bientôt)</button>
+            <button class="btn-add" style="width:100%; background:#8e44ad; margin-top:10px;" onclick="calculateVisibility()">LANCER LE CALCUL D'ÉLÉVATION</button>
         </div>
         
-        <div style="background: rgba(0,0,0,0.3); padding: 20px; text-align:center; border-radius: 8px; color: #7f8c8d;">
-            <i>Les résultats du calcul s'afficheront ici avec leurs graphiques d'élévation...</i>
+        <div id="calcResults" style="padding: 10px;">
+            <div style="background: rgba(0,0,0,0.3); padding: 20px; text-align:center; border-radius: 8px; color: #7f8c8d;">
+                <i>Les résultats du calcul s'afficheront ici...</i>
+            </div>
         </div>
     </div>
 </div>
@@ -362,108 +365,6 @@
     const savedBG = localStorage.getItem('astro_bg_stable');
     if(savedBG) document.body.style.backgroundImage = `url(${savedBG})`;
 
-    /* === REGLAGES / LIEUX === */
-    function openSettingsModal() { renderSitesList(); document.getElementById('settingsModal').style.display = "block"; }
-    function closeSettingsModal() { document.getElementById('settingsModal').style.display = "none"; populateSiteSelect(); }
-    
-    function addSite() {
-        const name = document.getElementById('siteName').value.trim();
-        const lat = parseFloat(document.getElementById('siteLat').value);
-        const lon = parseFloat(document.getElementById('siteLon').value);
-        
-        if(!name || isNaN(lat) || isNaN(lon)) { alert("Veuillez remplir tous les champs du lieu correctement."); return; }
-        
-        const newSite = { id: Date.now().toString(), name, lat, lon };
-        mySites.push(newSite);
-        localStorage.setItem('astroSites_v1', JSON.stringify(mySites));
-        
-        if(!activeSiteId) { activeSiteId = newSite.id; localStorage.setItem('astroActiveSite', activeSiteId); }
-        
-        document.getElementById('siteName').value = '';
-        document.getElementById('siteLat').value = '';
-        document.getElementById('siteLon').value = '';
-        renderSitesList();
-    }
-
-    function deleteSite(id) {
-        mySites = mySites.filter(s => s.id !== id);
-        localStorage.setItem('astroSites_v1', JSON.stringify(mySites));
-        if(activeSiteId === id) {
-            activeSiteId = mySites.length > 0 ? mySites[0].id : null;
-            localStorage.setItem('astroActiveSite', activeSiteId || '');
-        }
-        renderSitesList();
-    }
-
-    function renderSitesList() {
-        const container = document.getElementById('listSites');
-        container.innerHTML = '';
-        if(mySites.length === 0) { container.innerHTML = '<span style="color:#7f8c8d; font-size:0.85rem;">Aucun lieu enregistré.</span>'; return; }
-        
-        mySites.forEach(s => {
-            container.innerHTML += `
-                <div class="site-item">
-                    <div>
-                        <strong style="color:var(--accent);">${s.name}</strong><br>
-                        <span style="color:#95a5a6; font-size:0.8rem;">Lat: ${s.lat} | Lon: ${s.lon}</span>
-                    </div>
-                    <button class="gear-del" style="font-size:1.2rem;" onclick="deleteSite('${s.id}')">🗑</button>
-                </div>
-            `;
-        });
-    }
-
-    function populateSiteSelect() {
-        const sel = document.getElementById('activeSiteSelect');
-        sel.innerHTML = '';
-        if(mySites.length === 0) {
-            sel.innerHTML = '<option value="">-- Aucun lieu --</option>';
-            return;
-        }
-        mySites.forEach(s => {
-            const opt = new Option(s.name, s.id);
-            if(s.id === activeSiteId) opt.selected = true;
-            sel.add(opt);
-        });
-        
-        // Si aucun lieu actif défini mais qu'on a des lieux, on prend le premier
-        if(!activeSiteId && mySites.length > 0) {
-            activeSiteId = mySites[0].id;
-            sel.value = activeSiteId;
-            localStorage.setItem('astroActiveSite', activeSiteId);
-        }
-    }
-
-    function changeActiveSite() {
-        activeSiteId = document.getElementById('activeSiteSelect').value;
-        localStorage.setItem('astroActiveSite', activeSiteId);
-    }
-    
-    // Init lieu
-    populateSiteSelect();
-
-    /* === OUTIL VISIBILITE (Stub) === */
-    function openVisibilityModal() {
-        if(!activeSiteId || mySites.length === 0) {
-            alert("Veuillez d'abord configurer un Lieu d'observation dans les réglages (⚙️).");
-            return;
-        }
-        const site = mySites.find(s => s.id === activeSiteId);
-        document.getElementById('visModalSiteName').innerText = site.name;
-        
-        // Populate gear for tool
-        const pop = (type, selId) => {
-            const sel = document.getElementById(selId);
-            sel.innerHTML = '<option value="all">Tous</option>';
-            myGear[type].forEach(item => sel.add(new Option(item, item)));
-        };
-        pop('filters', 'visFilterSel');
-        pop('cameras', 'visCamSel');
-        pop('scopes', 'visScopeSel');
-
-        document.getElementById('visibilityModal').style.display = "block";
-    }
-
     /* === RECHERCHE API SIMBAD === */
     async function searchSimbad() {
         const refInput = document.getElementById('objRef').value.trim();
@@ -473,9 +374,15 @@
             const response = await fetch(`https://cdsweb.u-strasbg.fr/cgi-bin/nph-sesame/-oxp/SNV?${encodeURIComponent(refInput)}`);
             const text = await response.text();
             const xml = new DOMParser().parseFromString(text, "text/xml");
-            const oname = xml.querySelector("oname"), otype = xml.querySelector("otype");
+            
+            const oname = xml.querySelector("oname");
+            const otype = xml.querySelector("otype");
+            const jradeg = xml.querySelector("jradeg");
+            const jdedeg = xml.querySelector("jdedeg");
+
             if (oname) document.getElementById('objName').value = oname.textContent;
             else alert("Non trouvé dans SIMBAD.");
+            
             if (otype) {
                 const typeStr = otype.textContent, ts = document.getElementById('objType');
                 if (typeStr.includes('PN') || typeStr.includes('Planetary')) ts.value = 'Néb. Planétaire';
@@ -485,49 +392,114 @@
                 else if (typeStr.includes('GlC')) ts.value = 'Amas Globulaire';
                 else ts.value = 'Autre';
             }
+
+            if (jradeg && jdedeg) {
+                document.getElementById('objRa').value = parseFloat(jradeg.textContent).toFixed(4);
+                document.getElementById('objDec').value = parseFloat(jdedeg.textContent).toFixed(4);
+            }
         } catch (err) { alert("Erreur connexion SIMBAD."); }
         btn.innerText = "🔍";
+    }
+
+    /* === MOTEUR DE CALCUL VISIBILITE === */
+    function calculateVisibility() {
+        if(!activeSiteId || mySites.length === 0) return;
+        const site = mySites.find(s => s.id === activeSiteId);
+        const resultsDiv = document.getElementById('calcResults');
+        resultsDiv.innerHTML = '';
+        let count = 0;
+        
+        myObjects.forEach(o => {
+            if (o.dec !== undefined && o.dec !== "") {
+                const dec = parseFloat(o.dec);
+                const lat = parseFloat(site.lat);
+                
+                // Formule de l'élévation au transit : 90 - | Latitude - Déclinaison |
+                const maxAlt = 90 - Math.abs(lat - dec);
+                
+                // On affiche la cible si elle dépasse 20° au-dessus de l'horizon
+                if (maxAlt >= 20) {
+                    const vis = (o.startIdx <= o.endIdx ? (currentMonthIndex >= o.startIdx && currentMonthIndex <= o.endIdx) : (currentMonthIndex >= o.startIdx || currentMonthIndex <= o.endIdx));
+                    
+                    resultsDiv.innerHTML += `
+                        <div style="background: rgba(0,0,0,0.4); border-left: 4px solid ${vis ? '#2ecc71' : '#e74c3c'}; padding: 15px; margin-bottom: 10px; border-radius: 4px; text-align: left; display:flex; justify-content: space-between; align-items:center;">
+                            <div>
+                                <strong style="color:var(--highlight); font-size:1.1rem;">${o.ref}</strong> - ${o.name} <span style="font-size:0.75rem; color:#aaa; margin-left:10px;">(${o.type})</span>
+                                <div style="font-size:0.85rem; color:#bdc3c7; margin-top:5px;">
+                                    Élévation Max : <b style="color:white;">${maxAlt.toFixed(1)}°</b> | Déclinaison spatiale : ${dec}°
+                                </div>
+                            </div>
+                            <div style="font-size: 0.85rem; font-weight:bold; color: ${vis ? '#2ecc71' : '#e74c3c'}; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius: 12px;">
+                                ${vis ? 'Période Idéale' : 'Hors Saison'}
+                            </div>
+                        </div>
+                    `;
+                    count++;
+                }
+            }
+        });
+        
+        if(count === 0) {
+            resultsDiv.innerHTML = '<p style="color:#e74c3c;">Aucune cible calculable. Utilise la recherche 🔍 SIMBAD sur tes cibles pour récupérer leurs coordonnées spatiales (DEC) !</p>';
+        }
+    }
+
+    /* === REGLAGES / LIEUX === */
+    function openSettingsModal() { renderSitesList(); document.getElementById('settingsModal').style.display = "block"; }
+    function closeSettingsModal() { document.getElementById('settingsModal').style.display = "none"; populateSiteSelect(); }
+    function addSite() {
+        const name = document.getElementById('siteName').value.trim(); const lat = parseFloat(document.getElementById('siteLat').value); const lon = parseFloat(document.getElementById('siteLon').value);
+        if(!name || isNaN(lat) || isNaN(lon)) { alert("Erreur saisie lieu."); return; }
+        const newSite = { id: Date.now().toString(), name, lat, lon }; mySites.push(newSite); localStorage.setItem('astroSites_v1', JSON.stringify(mySites));
+        if(!activeSiteId) { activeSiteId = newSite.id; localStorage.setItem('astroActiveSite', activeSiteId); }
+        document.getElementById('siteName').value = ''; document.getElementById('siteLat').value = ''; document.getElementById('siteLon').value = ''; renderSitesList();
+    }
+    function deleteSite(id) {
+        mySites = mySites.filter(s => s.id !== id); localStorage.setItem('astroSites_v1', JSON.stringify(mySites));
+        if(activeSiteId === id) { activeSiteId = mySites.length > 0 ? mySites[0].id : null; localStorage.setItem('astroActiveSite', activeSiteId || ''); } renderSitesList();
+    }
+    function renderSitesList() {
+        const c = document.getElementById('listSites'); c.innerHTML = '';
+        if(mySites.length===0) { c.innerHTML='<span style="color:#7f8c8d; font-size:0.85rem;">Aucun lieu.</span>'; return; }
+        mySites.forEach(s => { c.innerHTML += `<div class="site-item"><div><strong style="color:var(--accent);">${s.name}</strong><br><span style="color:#95a5a6; font-size:0.8rem;">Lat: ${s.lat} | Lon: ${s.lon}</span></div><button class="gear-del" style="font-size:1.2rem;" onclick="deleteSite('${s.id}')">🗑</button></div>`; });
+    }
+    function populateSiteSelect() {
+        const sel = document.getElementById('activeSiteSelect'); sel.innerHTML = '';
+        if(mySites.length === 0) { sel.innerHTML = '<option value="">-- Aucun lieu --</option>'; return; }
+        mySites.forEach(s => { const opt = new Option(s.name, s.id); if(s.id === activeSiteId) opt.selected = true; sel.add(opt); });
+        if(!activeSiteId && mySites.length > 0) { activeSiteId = mySites[0].id; sel.value = activeSiteId; localStorage.setItem('astroActiveSite', activeSiteId); }
+    }
+    function changeActiveSite() { activeSiteId = document.getElementById('activeSiteSelect').value; localStorage.setItem('astroActiveSite', activeSiteId); }
+    populateSiteSelect();
+
+    /* === OUTIL VISIBILITE === */
+    function openVisibilityModal() {
+        if(!activeSiteId || mySites.length === 0) { alert("Configure un Lieu d'observation d'abord (⚙️)."); return; }
+        document.getElementById('visModalSiteName').innerText = mySites.find(s => s.id === activeSiteId).name;
+        const pop = (type, selId) => { const sel = document.getElementById(selId); sel.innerHTML = '<option value="all">Tous</option>'; myGear[type].forEach(item => sel.add(new Option(item, item))); };
+        pop('filters', 'visFilterSel'); pop('cameras', 'visCamSel'); pop('scopes', 'visScopeSel');
+        
+        // Réinitialise la zone de résultat
+        document.getElementById('calcResults').innerHTML = '<div style="background: rgba(0,0,0,0.3); padding: 20px; text-align:center; border-radius: 8px; color: #7f8c8d;"><i>Les résultats du calcul s'afficheront ici...</i></div>';
+        document.getElementById('visibilityModal').style.display = "block";
     }
 
     /* === FONCTIONS MATERIEL === */
     function openGearModal() { renderGearLists(); document.getElementById('gearModal').style.display = "block"; }
     function closeGearModal() { document.getElementById('gearModal').style.display = "none"; populateGearSelects(); }
-    
-    function addGear(type, inputId) {
-        const val = document.getElementById(inputId).value.trim();
-        if(val && !myGear[type].includes(val)) {
-            myGear[type].push(val); localStorage.setItem('astroGear_v1', JSON.stringify(myGear));
-            document.getElementById(inputId).value = ''; renderGearLists();
-        }
-    }
+    function addGear(type, inputId) { const val = document.getElementById(inputId).value.trim(); if(val && !myGear[type].includes(val)) { myGear[type].push(val); localStorage.setItem('astroGear_v1', JSON.stringify(myGear)); document.getElementById(inputId).value = ''; renderGearLists(); } }
     function deleteGear(type, index) { myGear[type].splice(index, 1); localStorage.setItem('astroGear_v1', JSON.stringify(myGear)); renderGearLists(); }
-    function renderGearLists() {
-        const rl = (type, cId) => {
-            const c = document.getElementById(cId); c.innerHTML = '';
-            myGear[type].forEach((item, i) => c.innerHTML += `<div class="gear-item">${item} <button class="gear-del" onclick="deleteGear('${type}', ${i})">✕</button></div>`);
-        };
-        rl('cameras', 'listCameras'); rl('scopes', 'listScopes'); rl('filters', 'listFilters');
-    }
-    function populateGearSelects() {
-        const ps = (type, sId, def) => {
-            const s = document.getElementById(sId); s.innerHTML = `<option value="-">${def}</option>`;
-            myGear[type].forEach(item => s.add(new Option(item, item)));
-        };
-        ps('cameras', 'sesCam', '-- Sél --'); ps('scopes', 'sesScope', '-- Sél --'); ps('filters', 'sesFilter', '-- Aucun --');
-    }
+    function renderGearLists() { const rl = (type, cId) => { const c = document.getElementById(cId); c.innerHTML = ''; myGear[type].forEach((item, i) => c.innerHTML += `<div class="gear-item">${item} <button class="gear-del" onclick="deleteGear('${type}', ${i})">✕</button></div>`); }; rl('cameras', 'listCameras'); rl('scopes', 'listScopes'); rl('filters', 'listFilters'); }
+    function populateGearSelects() { const ps = (type, sId, def) => { const s = document.getElementById(sId); s.innerHTML = `<option value="-">${def}</option>`; myGear[type].forEach(item => s.add(new Option(item, item))); }; ps('cameras', 'sesCam', '-- Sél --'); ps('scopes', 'sesScope', '-- Sél --'); ps('filters', 'sesFilter', '-- Aucun --'); }
     populateGearSelects();
-    function setSelectValue(sId, val) {
-        const s = document.getElementById(sId);
-        if (!val || val === '-') { s.value = '-'; return; }
-        if (!Array.from(s.options).some(o => o.value === val)) s.add(new Option(`${val} (Ancien)`, val));
-        s.value = val;
-    }
+    function setSelectValue(sId, val) { const s = document.getElementById(sId); if (!val || val === '-') { s.value = '-'; return; } if (!Array.from(s.options).some(o => o.value === val)) s.add(new Option(`${val} (Ancien)`, val)); s.value = val; }
 
     /* === CATALOGUE === */
     function addCustomObject() {
         myObjects.push({
             id: Date.now(), ref: document.getElementById('objRef').value.toUpperCase() || "N/A", name: document.getElementById('objName').value || "Sans nom",
             type: document.getElementById('objType').value, notes: document.getElementById('objNotes').value,
+            ra: document.getElementById('objRa').value, dec: document.getElementById('objDec').value,
             order: document.getElementById('objOrder').value !== "" ? parseInt(document.getElementById('objOrder').value) : 999,
             startIdx: parseInt(document.getElementById('monthStart').value), endIdx: parseInt(document.getElementById('monthEnd').value),
             hem: document.getElementById('objHem').value, sessions: []
@@ -537,13 +509,14 @@
         const o = myObjects.find(obj => obj.id === id);
         document.getElementById('editId').value = o.id; document.getElementById('objRef').value = o.ref; document.getElementById('objName').value = o.name;
         document.getElementById('objType').value = o.type; document.getElementById('objNotes').value = o.notes || "";
+        document.getElementById('objRa').value = o.ra || ""; document.getElementById('objDec').value = o.dec || "";
         document.getElementById('objOrder').value = o.order === 999 ? "" : o.order;
         document.getElementById('monthStart').value = o.startIdx; document.getElementById('monthEnd').value = o.endIdx; document.getElementById('objHem').value = o.hem;
         document.getElementById('addBtn').style.display = 'none'; document.getElementById('updateBtn').style.display = 'block'; window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     function updateObject() {
         const id = parseInt(document.getElementById('editId').value), idx = myObjects.findIndex(o => o.id === id);
-        myObjects[idx] = {...myObjects[idx], ref: document.getElementById('objRef').value.toUpperCase(), name: document.getElementById('objName').value, type: document.getElementById('objType').value, notes: document.getElementById('objNotes').value, order: document.getElementById('objOrder').value !== "" ? parseInt(document.getElementById('objOrder').value) : 999, startIdx: parseInt(document.getElementById('monthStart').value), endIdx: parseInt(document.getElementById('monthEnd').value), hem: document.getElementById('objHem').value };
+        myObjects[idx] = {...myObjects[idx], ref: document.getElementById('objRef').value.toUpperCase(), name: document.getElementById('objName').value, type: document.getElementById('objType').value, notes: document.getElementById('objNotes').value, ra: document.getElementById('objRa').value, dec: document.getElementById('objDec').value, order: document.getElementById('objOrder').value !== "" ? parseInt(document.getElementById('objOrder').value) : 999, startIdx: parseInt(document.getElementById('monthStart').value), endIdx: parseInt(document.getElementById('monthEnd').value), hem: document.getElementById('objHem').value };
         saveAndRender(); clearForm();
     }
 
@@ -621,6 +594,7 @@
     function clearForm() { 
         document.getElementById('editId').value = ""; document.getElementById('objRef').value = ""; 
         document.getElementById('objName').value = ""; document.getElementById('objNotes').value = "";
+        document.getElementById('objRa').value = ""; document.getElementById('objDec').value = "";
         document.getElementById('objOrder').value = "";
         document.getElementById('addBtn').style.display = 'block'; document.getElementById('updateBtn').style.display = 'none'; 
     }
