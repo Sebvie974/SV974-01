@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mon Catalogue Astro</title>
+    <title>Astro Suivi</title>
     <link rel="manifest" href="manifest.json">
     <style>
         :root {
@@ -114,6 +114,12 @@
         .filter-summary { background: rgba(52, 152, 219, 0.1); border-left: 4px solid var(--accent); padding: 12px 15px; border-radius: 6px; margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 10px; }
         .filter-summary-item { background: rgba(0,0,0,0.4); padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.08); }
         .filter-summary-item strong { color: var(--highlight); }
+        
+        /* Styles pour le gestionnaire de matériel */
+        .gear-section { background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid var(--accent); }
+        .gear-list { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .gear-item { background: var(--bg-color); padding: 5px 12px; border-radius: 15px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; border: 1px solid #333; }
+        .gear-del { color: #e74c3c; cursor: pointer; font-weight: bold; border: none; background: none; padding: 0; }
     </style>
 </head>
 <body>
@@ -173,6 +179,7 @@
 
     <div class="file-actions">
         <button class="btn-tool" style="background:#e67e22" onclick="document.getElementById('bgInput').click()">🖼️ Fond</button>
+        <button class="btn-tool" style="background:#c0392b" onclick="openGearModal()">🎒 Matériel</button>
         <a href="URL_DE_TA_VIDEO_ICI" target="_blank" class="btn-tool" style="background:#2980b9;">🎥 Tutoriel</a>
         <button class="btn-tool" style="background:#27ae60" onclick="exportJSON()">💾 Exporter</button>
         <button class="btn-tool" style="background:#8e44ad" onclick="document.getElementById('fileInput').click()">📂 Importer</button>
@@ -193,6 +200,43 @@
 
 <div class="catalog" id="catalog"></div>
 
+<!-- MODALE DE GESTION DU MATERIEL -->
+<div id="gearModal" class="modal">
+    <div class="modal-content" style="border-color: var(--accent); max-width: 600px;">
+        <span class="close-modal" onclick="closeGearModal()">&times;</span>
+        <h2 style="color: var(--accent); margin-top:0;">🎒 Mon Matériel</h2>
+        <p style="font-size: 0.85rem; color: #95a5a6; margin-bottom: 20px;">Ajoute ici ton équipement. Il sera disponible dans les listes déroulantes de tes sessions.</p>
+
+        <div class="gear-section">
+            <label>Ajouter une Caméra / APN</label>
+            <div style="display:flex; gap:10px; margin-top:5px;">
+                <input type="text" id="newCam" placeholder="Ex: ASI533MC Pro" style="flex:1">
+                <button class="btn-add" onclick="addGear('cameras', 'newCam')">+</button>
+            </div>
+            <div id="listCameras" class="gear-list"></div>
+        </div>
+
+        <div class="gear-section">
+            <label>Ajouter un Tube / Lunette / Objectif</label>
+            <div style="display:flex; gap:10px; margin-top:5px;">
+                <input type="text" id="newScope" placeholder="Ex: Redcat 51" style="flex:1">
+                <button class="btn-add" onclick="addGear('scopes', 'newScope')">+</button>
+            </div>
+            <div id="listScopes" class="gear-list"></div>
+        </div>
+
+        <div class="gear-section">
+            <label>Ajouter un Filtre</label>
+            <div style="display:flex; gap:10px; margin-top:5px;">
+                <input type="text" id="newFilter" placeholder="Ex: L-eNhance, OIII..." style="flex:1">
+                <button class="btn-add" onclick="addGear('filters', 'newFilter')">+</button>
+            </div>
+            <div id="listFilters" class="gear-list"></div>
+        </div>
+    </div>
+</div>
+
+<!-- MODALE DE GESTION DES SESSIONS -->
 <div id="sessionModal" class="modal">
     <div class="modal-content" id="modalContentDiv">
         <span class="close-modal" onclick="closeModal()">&times;</span>
@@ -206,11 +250,23 @@
                     <div class="form-group"><label>Date</label><input type="date" id="sesDate"></div>
                     <div class="form-group"><label>Nb de Poses</label><input type="number" id="sesCount" placeholder="Ex: 60"></div>
                     <div class="form-group"><label>Temps Unitaire (s)</label><input type="number" id="sesTime" placeholder="Ex: 300"></div>
-                    <div class="form-group"><label>Filtre</label><input type="text" id="sesFilter" placeholder="Ex: Ha, OIII, RGB..."></div>
-                    <div class="form-group"><label>Caméra</label><input type="text" id="sesCam" placeholder="Ex: Ares-C Pro"></div>
-                    <div class="form-group"><label>Lunette / Tube</label><input type="text" id="sesScope" placeholder="Ex: TS 61 EDPH II"></div>
+                    
+                    <!-- Remplacement des inputs par des selects -->
+                    <div class="form-group">
+                        <label>Filtre</label>
+                        <select id="sesFilter"><option value="-">-- Aucun / Sélectionner --</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Caméra</label>
+                        <select id="sesCam"><option value="-">-- Sélectionner --</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Lunette / Tube</label>
+                        <select id="sesScope"><option value="-">-- Sélectionner --</option></select>
+                    </div>
                 </div>
                 
+                <!-- Option Mosaïque -->
                 <div class="form-group full-width" style="flex-direction: row; align-items: center; gap: 10px; margin-top: 5px;">
                     <input type="checkbox" id="sesMosaic" onchange="toggleMosaic()">
                     <label for="sesMosaic" style="color: var(--highlight); cursor: pointer; margin: 0; font-size: 0.85rem;">Cette session est une tuile de mosaïque</label>
@@ -241,6 +297,10 @@
     });
 
     let myObjects = JSON.parse(localStorage.getItem('astroData_v3')) || [];
+    
+    // GESTION DU MATERIEL
+    let myGear = JSON.parse(localStorage.getItem('astroGear_v1')) || { cameras: [], scopes: [], filters: [] };
+    
     let currentHemFilter = "Sud";
     let currentTargetId = null;
     let currentProjectFilter = null;
@@ -262,6 +322,76 @@
     const savedBG = localStorage.getItem('astro_bg_stable');
     if(savedBG) document.body.style.backgroundImage = `url(${savedBG})`;
 
+    /* === FONCTIONS MATERIEL === */
+    function openGearModal() {
+        renderGearLists();
+        document.getElementById('gearModal').style.display = "block";
+    }
+
+    function closeGearModal() {
+        document.getElementById('gearModal').style.display = "none";
+        populateGearSelects(); // Met à jour les listes de la modale session
+    }
+
+    function addGear(type, inputId) {
+        const val = document.getElementById(inputId).value.trim();
+        if(val && !myGear[type].includes(val)) {
+            myGear[type].push(val);
+            localStorage.setItem('astroGear_v1', JSON.stringify(myGear));
+            document.getElementById(inputId).value = '';
+            renderGearLists();
+        }
+    }
+
+    function deleteGear(type, index) {
+        myGear[type].splice(index, 1);
+        localStorage.setItem('astroGear_v1', JSON.stringify(myGear));
+        renderGearLists();
+    }
+
+    function renderGearLists() {
+        const renderList = (type, containerId) => {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            myGear[type].forEach((item, index) => {
+                container.innerHTML += `<div class="gear-item">${item} <button class="gear-del" onclick="deleteGear('${type}', ${index})">✕</button></div>`;
+            });
+        };
+        renderList('cameras', 'listCameras');
+        renderList('scopes', 'listScopes');
+        renderList('filters', 'listFilters');
+    }
+
+    function populateGearSelects() {
+        const populateSelect = (type, selectId, defaultText) => {
+            const select = document.getElementById(selectId);
+            select.innerHTML = `<option value="-">${defaultText}</option>`;
+            myGear[type].forEach(item => {
+                select.add(new Option(item, item));
+            });
+        };
+        populateSelect('cameras', 'sesCam', '-- Sélectionner --');
+        populateSelect('scopes', 'sesScope', '-- Sélectionner --');
+        populateSelect('filters', 'sesFilter', '-- Aucun / Sélectionner --');
+    }
+
+    // Initialisation au chargement de la page
+    populateGearSelects();
+
+    // Fonction utilitaire pour sélectionner une valeur, et l'ajouter temporairement si elle n'existe plus
+    function setSelectValue(selectId, value) {
+        const select = document.getElementById(selectId);
+        if (!value || value === '-') { select.value = '-'; return; }
+        
+        let exists = Array.from(select.options).some(opt => opt.value === value);
+        if (!exists) {
+            select.add(new Option(`${value} (Ancien)`, value));
+        }
+        select.value = value;
+    }
+
+
+    /* === CATALOGUE PRINCIPAL === */
     function addCustomObject() {
         const orderVal = document.getElementById('objOrder').value;
         myObjects.push({
@@ -308,6 +438,7 @@
         saveAndRender(); clearForm();
     }
 
+    /* === SESSIONS === */
     function toggleMosaic() {
         const isChecked = document.getElementById('sesMosaic').checked;
         document.getElementById('mosaicFields').style.display = isChecked ? 'grid' : 'none';
@@ -321,6 +452,7 @@
         
         if(projectName) document.getElementById('sesProject').value = projectName;
         
+        populateGearSelects(); // Rafraichissement de sécurité
         clearSessionForm();
         renderSessionList();
         document.getElementById('sessionModal').style.display = "block";
@@ -335,6 +467,9 @@
     function clearSessionForm() {
         document.getElementById('sesCount').value = "";
         document.getElementById('sesTime').value = "";
+        document.getElementById('sesFilter').value = "-";
+        document.getElementById('sesCam').value = "-";
+        document.getElementById('sesScope').value = "-";
         document.getElementById('sesMosaic').checked = false;
         document.getElementById('sesPanelNum').value = "";
         document.getElementById('sesPanelTotal').value = "";
@@ -356,9 +491,9 @@
             project: document.getElementById('sesProject').value || 'Défaut',
             date: document.getElementById('sesDate').value,
             count: count, time: time,
-            filter: document.getElementById('sesFilter').value.trim() || '-',
-            cam: document.getElementById('sesCam').value || '-',
-            scope: document.getElementById('sesScope').value || '-',
+            filter: document.getElementById('sesFilter').value,
+            cam: document.getElementById('sesCam').value,
+            scope: document.getElementById('sesScope').value,
             isMosaic: isMosaic,
             panelNum: isMosaic ? document.getElementById('sesPanelNum').value : null,
             panelTotal: isMosaic ? document.getElementById('sesPanelTotal').value : null
@@ -386,9 +521,11 @@
         document.getElementById('sesDate').value = s.date || '';
         document.getElementById('sesCount').value = s.count || '';
         document.getElementById('sesTime').value = s.time || '';
-        document.getElementById('sesFilter').value = s.filter || '';
-        document.getElementById('sesCam').value = s.cam || '';
-        document.getElementById('sesScope').value = s.scope || '';
+        
+        setSelectValue('sesFilter', s.filter);
+        setSelectValue('sesCam', s.cam);
+        setSelectValue('sesScope', s.scope);
+
         document.getElementById('sesMosaic').checked = !!s.isMosaic;
         document.getElementById('sesPanelNum').value = s.panelNum || '';
         document.getElementById('sesPanelTotal').value = s.panelTotal || '';
@@ -441,7 +578,7 @@
         if(displaySessions.length > 0) {
             const filterTotals = {};
             displaySessions.forEach(s => {
-                const f = s.filter && s.filter.trim() !== '' ? s.filter.trim() : '-';
+                const f = s.filter && s.filter.trim() !== '' && s.filter !== '-' ? s.filter.trim() : 'Sans filtre';
                 const totalSec = s.count * s.time;
                 filterTotals[f] = (filterTotals[f] || 0) + totalSec;
             });
@@ -465,6 +602,10 @@
             const timeStr = formatTime(s.count * s.time);
             const mosaicLabel = s.isMosaic ? `<span style="color:var(--highlight); font-size:0.8rem; margin-left:8px; border:1px solid var(--highlight); padding:2px 6px; border-radius:10px;">Mosaïque: Panneau ${s.panelNum}/${s.panelTotal}</span>` : '';
 
+            const scopeDisplay = s.scope !== '-' ? s.scope : 'N/C';
+            const camDisplay = s.cam !== '-' ? s.cam : 'N/C';
+            const filterDisplay = s.filter !== '-' ? s.filter : 'Aucun';
+
             const item = document.createElement('div');
             item.className = 'session-item';
             item.innerHTML = `
@@ -472,7 +613,7 @@
                     <span class="session-title">[${s.project}] - ${s.date} ${mosaicLabel}</span>
                     <div class="session-details">
                         <b>Intégration:</b> ${s.count} poses x ${s.time}s (${timeStr})<br>
-                        <b>Matériel:</b> ${s.scope} | ${s.cam} | Filtre: ${s.filter}
+                        <b>Matériel:</b> ${scopeDisplay} | ${camDisplay} | Filtre: ${filterDisplay}
                     </div>
                 </div>
                 <div class="session-btn-group">
