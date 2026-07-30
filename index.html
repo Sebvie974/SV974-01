@@ -230,6 +230,18 @@
 
 <div class="catalog" id="catalog"></div>
 
+<!-- MODALE CHOIX DU NOM (SIMBAD) -->
+<div id="aliasModal" class="modal" style="z-index: 1000;">
+    <div class="modal-content" style="border-color: var(--accent); max-width: 500px;">
+        <span class="close-modal" onclick="document.getElementById('aliasModal').style.display='none'">&times;</span>
+        <h2 style="color: var(--accent); margin-top:0;">🔍 Choisir un nom</h2>
+        <p style="font-size: 0.85rem; color: #95a5a6; margin-bottom: 15px;">SIMBAD a trouvé plusieurs identifiants pour cette cible. Clique sur celui que tu souhaites utiliser comme nom :</p>
+        <div id="aliasList" style="display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto; padding-right: 10px;">
+            <!-- La liste s'injectera ici -->
+        </div>
+    </div>
+</div>
+
 <!-- MODALE REGLAGES (Lieux d'observation) -->
 <div id="settingsModal" class="modal">
     <div class="modal-content" style="border-color: #34495e; max-width: 600px;">
@@ -407,6 +419,7 @@
         const refInput = document.getElementById('objRef').value.trim();
         if (!refInput) { alert("Saisis d'abord une référence."); return; }
         const btn = document.getElementById('simbadBtn'); btn.innerText = "⏳";
+        
         try {
             const response = await fetch(`https://cdsweb.u-strasbg.fr/cgi-bin/nph-sesame/-oxp/SNV?${encodeURIComponent(refInput)}`);
             const text = await response.text();
@@ -417,20 +430,13 @@
             const jdedeg = xml.querySelector("jdedeg");
             const aliases = xml.querySelectorAll("alias");
 
-            // 1. LE NOM (Filtre des codes catalogues)
-            let bestName = "";
-            if (aliases.length > 0) {
-                const catalogRegex = /^(M|NGC|IC|UGC|PGC|VdB|Sh2|HD|HR)\s*\d+/i;
-                for (let alias of aliases) {
-                    let aliasText = alias.textContent.trim();
-                    if (!catalogRegex.test(aliasText) && aliasText.length > 3) { bestName = aliasText; break; }
-                }
+            if (!jradeg || !jdedeg) { 
+                alert("Référence introuvable dans SIMBAD."); 
+                btn.innerText = "🔍"; 
+                return; 
             }
-            document.getElementById('objName').value = bestName;
             
-            if (!jradeg || !jdedeg) { alert("Référence introuvable dans SIMBAD."); btn.innerText = "🔍"; return; }
-            
-            // 2. LE TYPE (Déjà implémenté, géré via otype)
+            // 1. LE TYPE
             if (otype) {
                 const typeStr = otype.textContent, ts = document.getElementById('objType');
                 if (typeStr.includes('PN') || typeStr.includes('Planetary')) ts.value = 'Néb. Planétaire';
@@ -441,27 +447,26 @@
                 else ts.value = 'Autre';
             }
 
+            // 2. LES COORDONNÉES
             const raDeg = parseFloat(jradeg.textContent);
             const decDeg = parseFloat(jdedeg.textContent);
             document.getElementById('objRa').value = raDeg.toFixed(4);
             document.getElementById('objDec').value = decDeg.toFixed(4);
 
-            // 3. L'HÉMISPHÈRE (Automatique via la Déclinaison)
+            // 3. L'HÉMISPHÈRE
             const hemSelect = document.getElementById('objHem');
             if (decDeg > 15) hemSelect.value = "Nord";
             else if (decDeg < -15) hemSelect.value = "Sud";
             else hemSelect.value = "Nord & Sud";
 
-            // 4. LA PÉRIODE DE VISIBILITÉ (Automatique via l'Ascension Droite)
+            // 4. LA PÉRIODE DE VISIBILITÉ
             const raHours = raDeg / 15;
             let bestMonth = Math.round((raHours - 8 + 24) % 24 / 2);
             if (bestMonth === 12) bestMonth = 0;
-            
-            // Crée une fenêtre de 6 mois autour du mois idéal
             document.getElementById('monthStart').value = (bestMonth - 3 + 12) % 12;
             document.getElementById('monthEnd').value = (bestMonth + 3) % 12;
 
-            // 5. VÉRIFICATION AVEC LE LIEU ACTIF ET SES CONTRAINTES
+            // 5. VÉRIFICATION DES CONTRAINTES DU LIEU
             if (activeSiteId && mySites.length > 0) {
                 const site = mySites.find(s => s.id === activeSiteId);
                 const minAlt = site.minAlt !== undefined ? site.minAlt : 20;
@@ -470,12 +475,63 @@
                 
                 let warning = "";
                 if (maxAlt < minAlt) warning += `- Élévation max (${maxAlt.toFixed(1)}°) inférieure à ton minimum (${minAlt}°).\n`;
-                if (transitDir === "NORD" && !site.viewN) warning += `- Transit au NORD (horizon désactivé pour ce lieu).\n`;
-                if (transitDir === "SUD" && !site.viewS) warning += `- Transit au SUD (horizon désactivé pour ce lieu).\n`;
+                if (transitDir === "NORD" && !site.viewN) warning += `- Transit au NORD (horizon désactivé).\n`;
+                if (transitDir === "SUD" && !site.viewS) warning += `- Transit au SUD (horizon désactivé).\n`;
                 
                 if (warning) {
-                    alert(`⚠️ Contraintes pour le lieu "${site.name}" :\n${warning}\n(Tu pourras toujours l'imager depuis un autre de tes lieux)`);
+                    alert(`⚠️ Contraintes pour le lieu "${site.name}" :\n${warning}\n(Tu pourras toujours l'imager depuis un autre lieu)`);
                 }
+            }
+
+            // 6. PROPOSITION DES NOMS (ALIASES) EN LISTE
+            if (aliases.length > 0) {
+                const aliasListDiv = document.getElementById('aliasList');
+                aliasListDiv.innerHTML = '';
+                
+                let aliasArray = Array.from(aliases).map(a => a.textContent.trim());
+                
+                // Regex pour repérer les catalogues chiants (M, NGC, IC, etc.)
+                const catalogRegex = /^(M|NGC|IC|UGC|PGC|VdB|Sh2|HD|HR)\s*\d+/i;
+                
+                // Tri : Les vrais noms propres remontent en haut de la liste
+                aliasArray.sort((a, b) => {
+                    let aIsCat = catalogRegex.test(a);
+                    let bIsCat = catalogRegex.test(b);
+                    if (aIsCat && !bIsCat) return 1;
+                    if (!aIsCat && bIsCat) return -1;
+                    return 0;
+                });
+
+                aliasArray.forEach(aliasText => {
+                    const btnAlias = document.createElement('button');
+                    btnAlias.className = 'btn-tool';
+                    // Les vrais noms sont bleus, les catalogues sont grisés
+                    btnAlias.style.background = catalogRegex.test(aliasText) ? 'rgba(255,255,255,0.1)' : 'var(--accent)';
+                    btnAlias.style.width = '100%';
+                    btnAlias.style.textAlign = 'left';
+                    btnAlias.style.justifyContent = 'flex-start';
+                    btnAlias.innerText = aliasText;
+                    
+                    btnAlias.onclick = () => {
+                        document.getElementById('objName').value = aliasText;
+                        document.getElementById('aliasModal').style.display = 'none';
+                    };
+                    aliasListDiv.appendChild(btnAlias);
+                });
+                
+                // Bouton pour refuser toutes les suggestions
+                const ignoreBtn = document.createElement('button');
+                ignoreBtn.className = 'btn-tool';
+                ignoreBtn.style.background = '#e74c3c';
+                ignoreBtn.style.width = '100%';
+                ignoreBtn.style.marginTop = '15px';
+                ignoreBtn.innerText = "Laisser vide / Saisir manuellement";
+                ignoreBtn.onclick = () => {
+                    document.getElementById('aliasModal').style.display = 'none';
+                };
+                aliasListDiv.appendChild(ignoreBtn);
+
+                document.getElementById('aliasModal').style.display = 'block';
             }
 
         } catch (err) { alert("Erreur connexion SIMBAD."); }
