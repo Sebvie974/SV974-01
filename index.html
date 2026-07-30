@@ -421,7 +421,8 @@
         const btn = document.getElementById('simbadBtn'); btn.innerText = "⏳";
         
         try {
-            const response = await fetch(`https://cdsweb.u-strasbg.fr/cgi-bin/nph-sesame/-oxp/SNV?${encodeURIComponent(refInput)}`);
+            // CORRECTION ICI : Ajout du "I" après -oxp pour forcer SIMBAD à renvoyer tous les alias !
+            const response = await fetch(`https://cdsweb.u-strasbg.fr/cgi-bin/nph-sesame/-oxpI/SNV?${encodeURIComponent(refInput)}`);
             const text = await response.text();
             const xml = new DOMParser().parseFromString(text, "text/xml");
             
