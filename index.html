@@ -115,7 +115,6 @@
         .filter-summary-item { background: rgba(0,0,0,0.4); padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.08); }
         .filter-summary-item strong { color: var(--highlight); }
         
-        /* Styles pour le gestionnaire de matériel */
         .gear-section { background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid var(--accent); }
         .gear-list { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
         .gear-item { background: var(--bg-color); padding: 5px 12px; border-radius: 15px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; border: 1px solid #333; }
@@ -140,7 +139,14 @@
 <section class="admin-panel">
     <input type="hidden" id="editId">
     <div class="form-grid">
-        <div class="form-group"><label>Référence</label><input type="text" id="objRef" placeholder="M42, IC2944..."></div>
+        <div class="form-group">
+            <label>Référence</label>
+            <!-- NOUVEAU: Le conteneur avec le bouton de recherche SIMBAD -->
+            <div style="display:flex; gap:5px;">
+                <input type="text" id="objRef" placeholder="M42, IC2944..." style="flex:1;">
+                <button id="simbadBtn" class="btn-add" style="padding: 0 12px; border-radius: 6px;" onclick="searchSimbad()" title="Rechercher infos sur SIMBAD">🔍</button>
+            </div>
+        </div>
         <div class="form-group"><label>Nom</label><input type="text" id="objName"></div>
         <div class="form-group">
             <label>Type</label>
@@ -153,8 +159,8 @@
                 <option value="Autre">Autre</option>
             </select>
         </div>
-        <div class="form-group"><label>Début</label><select id="monthStart"></select></div>
-        <div class="form-group"><label>Fin</label><select id="monthEnd"></select></div>
+        <div class="form-group"><label>Début Visibilité</label><select id="monthStart"></select></div>
+        <div class="form-group"><label>Fin Visibilité</label><select id="monthEnd"></select></div>
         <div class="form-group">
             <label>Hémisphère</label>
             <select id="objHem">
@@ -210,7 +216,7 @@
         <div class="gear-section">
             <label>Ajouter une Caméra / APN</label>
             <div style="display:flex; gap:10px; margin-top:5px;">
-                <input type="text" id="newCam" placeholder="Ex: ASI533MC Pro" style="flex:1">
+                <input type="text" id="newCam" placeholder="Ex: Ares-C Pro" style="flex:1">
                 <button class="btn-add" onclick="addGear('cameras', 'newCam')">+</button>
             </div>
             <div id="listCameras" class="gear-list"></div>
@@ -219,7 +225,7 @@
         <div class="gear-section">
             <label>Ajouter un Tube / Lunette / Objectif</label>
             <div style="display:flex; gap:10px; margin-top:5px;">
-                <input type="text" id="newScope" placeholder="Ex: Redcat 51" style="flex:1">
+                <input type="text" id="newScope" placeholder="Ex: TS 61 EDPH II" style="flex:1">
                 <button class="btn-add" onclick="addGear('scopes', 'newScope')">+</button>
             </div>
             <div id="listScopes" class="gear-list"></div>
@@ -250,8 +256,6 @@
                     <div class="form-group"><label>Date</label><input type="date" id="sesDate"></div>
                     <div class="form-group"><label>Nb de Poses</label><input type="number" id="sesCount" placeholder="Ex: 60"></div>
                     <div class="form-group"><label>Temps Unitaire (s)</label><input type="number" id="sesTime" placeholder="Ex: 300"></div>
-                    
-                    <!-- Remplacement des inputs par des selects -->
                     <div class="form-group">
                         <label>Filtre</label>
                         <select id="sesFilter"><option value="-">-- Aucun / Sélectionner --</option></select>
@@ -266,7 +270,6 @@
                     </div>
                 </div>
                 
-                <!-- Option Mosaïque -->
                 <div class="form-group full-width" style="flex-direction: row; align-items: center; gap: 10px; margin-top: 5px;">
                     <input type="checkbox" id="sesMosaic" onchange="toggleMosaic()">
                     <label for="sesMosaic" style="color: var(--highlight); cursor: pointer; margin: 0; font-size: 0.85rem;">Cette session est une tuile de mosaïque</label>
@@ -297,10 +300,7 @@
     });
 
     let myObjects = JSON.parse(localStorage.getItem('astroData_v3')) || [];
-    
-    // GESTION DU MATERIEL
     let myGear = JSON.parse(localStorage.getItem('astroGear_v1')) || { cameras: [], scopes: [], filters: [] };
-    
     let currentHemFilter = "Sud";
     let currentTargetId = null;
     let currentProjectFilter = null;
@@ -322,17 +322,55 @@
     const savedBG = localStorage.getItem('astro_bg_stable');
     if(savedBG) document.body.style.backgroundImage = `url(${savedBG})`;
 
+    /* === RECHERCHE API SIMBAD === */
+    async function searchSimbad() {
+        const refInput = document.getElementById('objRef').value.trim();
+        if (!refInput) {
+            alert("Saisis d'abord une référence (ex: M42 ou NGC 253) avant de rechercher.");
+            return;
+        }
+        
+        const btn = document.getElementById('simbadBtn');
+        btn.innerText = "⏳";
+        
+        try {
+            const response = await fetch(`https://cdsweb.u-strasbg.fr/cgi-bin/nph-sesame/-oxp/SNV?${encodeURIComponent(refInput)}`);
+            const text = await response.text();
+            const parser = new DOMParser();
+            const xml = parser.parseFromString(text, "text/xml");
+            
+            const oname = xml.querySelector("oname");
+            const otype = xml.querySelector("otype");
+            
+            if (oname) {
+                // Remplissage automatique du champ Nom (modifiable librement ensuite)
+                document.getElementById('objName').value = oname.textContent;
+            } else {
+                alert("Cet objet n'a pas été trouvé dans la base SIMBAD.");
+            }
+            
+            if (otype) {
+                const typeStr = otype.textContent;
+                const typeSelect = document.getElementById('objType');
+                if (typeStr.includes('PN') || typeStr.includes('Planetary')) typeSelect.value = 'Néb. Planétaire';
+                else if (typeStr.includes('Neb') || typeStr.includes('HII') || typeStr.includes('SNR')) typeSelect.value = 'Nébuleuse';
+                else if (typeStr.includes('Gal')) typeSelect.value = 'Galaxie';
+                else if (typeStr.includes('OpC')) typeSelect.value = 'Amas Ouvert';
+                else if (typeStr.includes('GlC')) typeSelect.value = 'Amas Globulaire';
+                else typeSelect.value = 'Autre';
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Erreur lors de la connexion à la base SIMBAD.");
+        }
+        btn.innerText = "🔍";
+    }
+
+
     /* === FONCTIONS MATERIEL === */
-    function openGearModal() {
-        renderGearLists();
-        document.getElementById('gearModal').style.display = "block";
-    }
-
-    function closeGearModal() {
-        document.getElementById('gearModal').style.display = "none";
-        populateGearSelects(); // Met à jour les listes de la modale session
-    }
-
+    function openGearModal() { renderGearLists(); document.getElementById('gearModal').style.display = "block"; }
+    function closeGearModal() { document.getElementById('gearModal').style.display = "none"; populateGearSelects(); }
+    
     function addGear(type, inputId) {
         const val = document.getElementById(inputId).value.trim();
         if(val && !myGear[type].includes(val)) {
@@ -366,30 +404,21 @@
         const populateSelect = (type, selectId, defaultText) => {
             const select = document.getElementById(selectId);
             select.innerHTML = `<option value="-">${defaultText}</option>`;
-            myGear[type].forEach(item => {
-                select.add(new Option(item, item));
-            });
+            myGear[type].forEach(item => select.add(new Option(item, item)));
         };
         populateSelect('cameras', 'sesCam', '-- Sélectionner --');
         populateSelect('scopes', 'sesScope', '-- Sélectionner --');
         populateSelect('filters', 'sesFilter', '-- Aucun / Sélectionner --');
     }
-
-    // Initialisation au chargement de la page
     populateGearSelects();
 
-    // Fonction utilitaire pour sélectionner une valeur, et l'ajouter temporairement si elle n'existe plus
     function setSelectValue(selectId, value) {
         const select = document.getElementById(selectId);
         if (!value || value === '-') { select.value = '-'; return; }
-        
         let exists = Array.from(select.options).some(opt => opt.value === value);
-        if (!exists) {
-            select.add(new Option(`${value} (Ancien)`, value));
-        }
+        if (!exists) select.add(new Option(`${value} (Ancien)`, value));
         select.value = value;
     }
-
 
     /* === CATALOGUE PRINCIPAL === */
     function addCustomObject() {
@@ -452,29 +481,19 @@
         
         if(projectName) document.getElementById('sesProject').value = projectName;
         
-        populateGearSelects(); // Rafraichissement de sécurité
+        populateGearSelects();
         clearSessionForm();
         renderSessionList();
         document.getElementById('sessionModal').style.display = "block";
     }
 
-    function closeModal() {
-        document.getElementById('sessionModal').style.display = "none";
-        clearSessionForm();
-        render(); 
-    }
+    function closeModal() { document.getElementById('sessionModal').style.display = "none"; clearSessionForm(); render(); }
 
     function clearSessionForm() {
-        document.getElementById('sesCount').value = "";
-        document.getElementById('sesTime').value = "";
-        document.getElementById('sesFilter').value = "-";
-        document.getElementById('sesCam').value = "-";
-        document.getElementById('sesScope').value = "-";
-        document.getElementById('sesMosaic').checked = false;
-        document.getElementById('sesPanelNum').value = "";
-        document.getElementById('sesPanelTotal').value = "";
-        toggleMosaic();
-        currentEditSessionId = null;
+        document.getElementById('sesCount').value = ""; document.getElementById('sesTime').value = "";
+        document.getElementById('sesFilter').value = "-"; document.getElementById('sesCam').value = "-"; document.getElementById('sesScope').value = "-";
+        document.getElementById('sesMosaic').checked = false; document.getElementById('sesPanelNum').value = ""; document.getElementById('sesPanelTotal').value = "";
+        toggleMosaic(); currentEditSessionId = null;
         document.getElementById('btnSubmitSession').innerText = "VALIDER LA SESSION";
         document.getElementById('btnSubmitSession').style.background = "var(--project)";
     }
@@ -482,21 +501,15 @@
     function saveSession() {
         const obj = myObjects.find(o => o.id === currentTargetId);
         if(!obj.sessions) obj.sessions = [];
-        
         const count = parseInt(document.getElementById('sesCount').value) || 0;
         const time = parseInt(document.getElementById('sesTime').value) || 0;
         const isMosaic = document.getElementById('sesMosaic').checked;
         
         const sessionData = {
-            project: document.getElementById('sesProject').value || 'Défaut',
-            date: document.getElementById('sesDate').value,
-            count: count, time: time,
-            filter: document.getElementById('sesFilter').value,
-            cam: document.getElementById('sesCam').value,
-            scope: document.getElementById('sesScope').value,
-            isMosaic: isMosaic,
-            panelNum: isMosaic ? document.getElementById('sesPanelNum').value : null,
-            panelTotal: isMosaic ? document.getElementById('sesPanelTotal').value : null
+            project: document.getElementById('sesProject').value || 'Défaut', date: document.getElementById('sesDate').value,
+            count: count, time: time, filter: document.getElementById('sesFilter').value,
+            cam: document.getElementById('sesCam').value, scope: document.getElementById('sesScope').value,
+            isMosaic: isMosaic, panelNum: isMosaic ? document.getElementById('sesPanelNum').value : null, panelTotal: isMosaic ? document.getElementById('sesPanelTotal').value : null
         };
 
         if (currentEditSessionId) {
@@ -506,31 +519,20 @@
             obj.sessions.push({ id: Date.now(), ...sessionData });
         }
         
-        saveAndRender();
-        renderSessionList();
-        clearSessionForm();
+        saveAndRender(); renderSessionList(); clearSessionForm();
     }
 
     function editSession(sessionId) {
         const obj = myObjects.find(o => o.id === currentTargetId);
         const s = obj.sessions.find(x => x.id === sessionId);
         if (!s) return;
-
         currentEditSessionId = sessionId;
-        document.getElementById('sesProject').value = s.project || '';
-        document.getElementById('sesDate').value = s.date || '';
-        document.getElementById('sesCount').value = s.count || '';
-        document.getElementById('sesTime').value = s.time || '';
-        
-        setSelectValue('sesFilter', s.filter);
-        setSelectValue('sesCam', s.cam);
-        setSelectValue('sesScope', s.scope);
-
+        document.getElementById('sesProject').value = s.project || ''; document.getElementById('sesDate').value = s.date || '';
+        document.getElementById('sesCount').value = s.count || ''; document.getElementById('sesTime').value = s.time || '';
+        setSelectValue('sesFilter', s.filter); setSelectValue('sesCam', s.cam); setSelectValue('sesScope', s.scope);
         document.getElementById('sesMosaic').checked = !!s.isMosaic;
-        document.getElementById('sesPanelNum').value = s.panelNum || '';
-        document.getElementById('sesPanelTotal').value = s.panelTotal || '';
+        document.getElementById('sesPanelNum').value = s.panelNum || ''; document.getElementById('sesPanelTotal').value = s.panelTotal || '';
         toggleMosaic();
-
         document.getElementById('btnSubmitSession').innerText = "METTRE À JOUR LA SESSION";
         document.getElementById('btnSubmitSession').style.background = "var(--success)";
         document.getElementById('modalContentDiv').scrollTo({ top: 0, behavior: 'smooth' });
@@ -540,38 +542,26 @@
         if(confirm("Supprimer cette session ?")) {
             const obj = myObjects.find(o => o.id === currentTargetId);
             obj.sessions = obj.sessions.filter(s => s.id !== sessionId);
-            saveAndRender();
-            renderSessionList();
+            saveAndRender(); renderSessionList();
             if(currentEditSessionId === sessionId) clearSessionForm();
         }
     }
 
     function formatTime(totalSec) {
-        let h = Math.floor(totalSec / 3600);
-        let m = Math.floor((totalSec % 3600) / 60);
-        if (h > 0) {
-            return m > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${h}h`;
-        }
+        let h = Math.floor(totalSec / 3600), m = Math.floor((totalSec % 3600) / 60);
+        if (h > 0) return m > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${h}h`;
         return `${m} min`;
     }
 
     function renderSessionList() {
         const obj = myObjects.find(o => o.id === currentTargetId);
-        const listDiv = document.getElementById('sessionList');
-        const filterDiv = document.getElementById('sessionListFilter');
-        const summaryDiv = document.getElementById('sessionFilterSummary');
-        
+        const listDiv = document.getElementById('sessionList'), filterDiv = document.getElementById('sessionListFilter'), summaryDiv = document.getElementById('sessionFilterSummary');
         listDiv.innerHTML = ''; filterDiv.innerHTML = ''; summaryDiv.innerHTML = '';
-
-        if(!obj.sessions || obj.sessions.length === 0) {
-            listDiv.innerHTML = '<p style="color:#7f8c8d; text-align:center;">Aucune session enregistrée pour cette cible.</p>';
-            return;
-        }
+        if(!obj.sessions || obj.sessions.length === 0) { listDiv.innerHTML = '<p style="color:#7f8c8d; text-align:center;">Aucune session enregistrée.</p>'; return; }
 
         let displaySessions = obj.sessions;
-        
         if(currentProjectFilter) {
-            filterDiv.innerHTML = `<span class="project-badge" onclick="openSessions(${obj.id}, null)">❌ Filtre actif : ${currentProjectFilter} (Cliquez pour annuler)</span>`;
+            filterDiv.innerHTML = `<span class="project-badge" onclick="openSessions(${obj.id}, null)">❌ Filtre actif : ${currentProjectFilter}</span>`;
             displaySessions = obj.sessions.filter(s => s.project === currentProjectFilter);
         }
 
@@ -579,17 +569,13 @@
             const filterTotals = {};
             displaySessions.forEach(s => {
                 const f = s.filter && s.filter.trim() !== '' && s.filter !== '-' ? s.filter.trim() : 'Sans filtre';
-                const totalSec = s.count * s.time;
-                filterTotals[f] = (filterTotals[f] || 0) + totalSec;
+                filterTotals[f] = (filterTotals[f] || 0) + (s.count * s.time);
             });
-
             const summaryContainer = document.createElement('div');
             summaryContainer.className = 'filter-summary';
-            summaryContainer.innerHTML = '<h4 style="margin:0 0 8px 0; width:100%; font-size:0.8rem; color:#95a5a6; text-transform:uppercase; letter-spacing:0.5px;">Temps total par filtre :</h4>';
-
+            summaryContainer.innerHTML = '<h4 style="margin:0 0 8px 0; width:100%; font-size:0.8rem; color:#95a5a6; text-transform:uppercase;">Temps total par filtre :</h4>';
             Object.keys(filterTotals).forEach(f => {
-                const summaryItem = document.createElement('span');
-                summaryItem.className = 'filter-summary-item';
+                const summaryItem = document.createElement('span'); summaryItem.className = 'filter-summary-item';
                 summaryItem.innerHTML = `Filtre <b>${f}</b> : <strong>${formatTime(filterTotals[f])}</strong>`;
                 summaryContainer.appendChild(summaryItem);
             });
@@ -597,11 +583,9 @@
         }
 
         displaySessions.sort((a,b) => new Date(b.date) - new Date(a.date));
-
         displaySessions.forEach(s => {
             const timeStr = formatTime(s.count * s.time);
-            const mosaicLabel = s.isMosaic ? `<span style="color:var(--highlight); font-size:0.8rem; margin-left:8px; border:1px solid var(--highlight); padding:2px 6px; border-radius:10px;">Mosaïque: Panneau ${s.panelNum}/${s.panelTotal}</span>` : '';
-
+            const mosaicLabel = s.isMosaic ? `<span style="color:var(--highlight); font-size:0.8rem; margin-left:8px; border:1px solid var(--highlight); padding:2px 6px; border-radius:10px;">Mosaïque: ${s.panelNum}/${s.panelTotal}</span>` : '';
             const scopeDisplay = s.scope !== '-' ? s.scope : 'N/C';
             const camDisplay = s.cam !== '-' ? s.cam : 'N/C';
             const filterDisplay = s.filter !== '-' ? s.filter : 'Aucun';
@@ -611,14 +595,11 @@
             item.innerHTML = `
                 <div>
                     <span class="session-title">[${s.project}] - ${s.date} ${mosaicLabel}</span>
-                    <div class="session-details">
-                        <b>Intégration:</b> ${s.count} poses x ${s.time}s (${timeStr})<br>
-                        <b>Matériel:</b> ${scopeDisplay} | ${camDisplay} | Filtre: ${filterDisplay}
-                    </div>
+                    <div class="session-details"><b>Intégration:</b> ${s.count} poses x ${s.time}s (${timeStr})<br><b>Matériel:</b> ${scopeDisplay} | ${camDisplay} | Filtre: ${filterDisplay}</div>
                 </div>
                 <div class="session-btn-group">
-                    <button class="session-action-btn" style="color:var(--accent)" onclick="editSession(${s.id})" title="Modifier session">✏️</button>
-                    <button class="session-action-btn" style="color:#e74c3c" onclick="deleteSession(${s.id})" title="Supprimer session">🗑</button>
+                    <button class="session-action-btn" style="color:var(--accent)" onclick="editSession(${s.id})">✏️</button>
+                    <button class="session-action-btn" style="color:#e74c3c" onclick="deleteSession(${s.id})">🗑</button>
                 </div>
             `;
             listDiv.appendChild(item);
@@ -629,7 +610,6 @@
         const container = document.getElementById('catalog');
         const sortVal = document.getElementById('sortType').value;
         container.innerHTML = '';
-        
         let data = myObjects.filter(o => o.hem === currentHemFilter || o.hem === "Nord & Sud");
         
         data.sort((a, b) => {
@@ -652,17 +632,7 @@
                 projects.forEach(p => {
                     let totalTimeSec = 0;
                     o.sessions.filter(s => s.project === p).forEach(s => totalTimeSec += (s.count * s.time));
-                    
-                    let h = Math.floor(totalTimeSec / 3600);
-                    let m = Math.floor((totalTimeSec % 3600) / 60);
-                    let timeStr = "";
-                    if (h > 0) {
-                        timeStr = m > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${h}h`;
-                    } else {
-                        timeStr = `${m}m`;
-                    }
-
-                    projectBadgesHTML += `<span class="project-badge" onclick="openSessions(${o.id}, '${p}')">📸 ${p} (${timeStr})</span>`;
+                    projectBadgesHTML += `<span class="project-badge" onclick="openSessions(${o.id}, '${p}')">📸 ${p} (${formatTime(totalTimeSec)})</span>`;
                 });
             }
 
@@ -671,10 +641,10 @@
             card.innerHTML = `
                 ${o.order < 999 ? `<div class="order-badge">${o.order}</div>` : ''}
                 <div class="card-actions">
-                    <button class="btn-icon" style="color:var(--project)" onclick="openSessions(${o.id})" title="Gérer les Sessions">📸</button>
-                    <a href="${stellariumUrl}" target="_blank" class="btn-icon" title="Éphémérides">📡</a>
-                    <button class="btn-icon" style="color:var(--accent)" onclick="editObject(${o.id})" title="Modifier">✏️</button>
-                    <button class="btn-icon" style="color:#e74c3c" onclick="deleteObject(${o.id})" title="Supprimer">🗑</button>
+                    <button class="btn-icon" style="color:var(--project)" onclick="openSessions(${o.id})">📸</button>
+                    <a href="${stellariumUrl}" target="_blank" class="btn-icon">📡</a>
+                    <button class="btn-icon" style="color:var(--accent)" onclick="editObject(${o.id})">✏️</button>
+                    <button class="btn-icon" style="color:#e74c3c" onclick="deleteObject(${o.id})">🗑</button>
                 </div>
                 <div class="status-badge ${vis ? 'status-visible' : 'status-hidden'}">${vis ? '● Visible' : '○ Hors saison'}</div><br>
                 <span class="ref">${o.ref}</span>
@@ -682,7 +652,6 @@
                 <span class="obj-type">${o.type}</span>
                 <div style="font-size:0.75rem; color:#aaa;">${monthNames[o.startIdx]} — ${monthNames[o.endIdx]}</div>
                 <span class="obj-hem-tag">🌍 ${o.hem}</span>
-                
                 ${projectBadgesHTML ? `<div class="project-badges-container">${projectBadgesHTML}</div>` : ''}
                 ${o.notes ? `<div class="notes-display">${o.notes}</div>` : ''}
             `;
