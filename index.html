@@ -294,10 +294,36 @@
     <div class="modal-content" style="border-color: var(--accent); max-width: 600px;">
         <span class="close-modal" onclick="closeGearModal()">&times;</span>
         <h2 style="color: var(--accent); margin-top:0;">🎒 Mon Matériel</h2>
-        <p style="font-size: 0.85rem; color: #95a5a6; margin-bottom: 20px;">Ajoute ici ton équipement. Il sera disponible dans les listes déroulantes de tes sessions.</p>
-        <div class="gear-section"><label>Caméras / APN</label><div style="display:flex; gap:10px; margin-top:5px;"><input type="text" id="newCam" style="flex:1"><button class="btn-add" onclick="addGear('cameras', 'newCam')">+</button></div><div id="listCameras" class="gear-list"></div></div>
-        <div class="gear-section"><label>Tubes / Lunettes</label><div style="display:flex; gap:10px; margin-top:5px;"><input type="text" id="newScope" style="flex:1"><button class="btn-add" onclick="addGear('scopes', 'newScope')">+</button></div><div id="listScopes" class="gear-list"></div></div>
-        <div class="gear-section"><label>Filtres</label><div style="display:flex; gap:10px; margin-top:5px;"><input type="text" id="newFilter" style="flex:1"><button class="btn-add" onclick="addGear('filters', 'newFilter')">+</button></div><div id="listFilters" class="gear-list"></div></div>
+        <p style="font-size: 0.85rem; color: #95a5a6; margin-bottom: 20px;">Ajoute ici ton équipement et ses caractéristiques techniques.</p>
+        
+        <div class="gear-section">
+            <label>Caméras / APN</label>
+            <div style="display:flex; gap:10px; margin-top:5px;">
+                <input type="text" id="newCam" placeholder="Ex: Ares-C Pro" style="flex:2">
+                <input type="number" id="newCamPix" placeholder="Pixels (µm) ex: 3.76" step="0.01" style="flex:1">
+                <button class="btn-add" onclick="addGear('cameras')">+</button>
+            </div>
+            <div id="listCameras" class="gear-list"></div>
+        </div>
+        
+        <div class="gear-section">
+            <label>Tubes / Lunettes</label>
+            <div style="display:flex; gap:10px; margin-top:5px;">
+                <input type="text" id="newScope" placeholder="Ex: TS 61 EDPH II" style="flex:2">
+                <input type="number" id="newScopeFoc" placeholder="Focale (mm) ex: 274" style="flex:1">
+                <button class="btn-add" onclick="addGear('scopes')">+</button>
+            </div>
+            <div id="listScopes" class="gear-list"></div>
+        </div>
+        
+        <div class="gear-section">
+            <label>Filtres</label>
+            <div style="display:flex; gap:10px; margin-top:5px;">
+                <input type="text" id="newFilter" placeholder="Ex: SHO, L-eNhance..." style="flex:1">
+                <button class="btn-add" onclick="addGear('filters')">+</button>
+            </div>
+            <div id="listFilters" class="gear-list"></div>
+        </div>
     </div>
 </div>
 
@@ -376,13 +402,34 @@
             const text = await response.text();
             const xml = new DOMParser().parseFromString(text, "text/xml");
             
-            const oname = xml.querySelector("oname");
             const otype = xml.querySelector("otype");
             const jradeg = xml.querySelector("jradeg");
             const jdedeg = xml.querySelector("jdedeg");
+            const aliases = xml.querySelectorAll("alias");
 
-            if (oname) document.getElementById('objName').value = oname.textContent;
-            else alert("Non trouvé dans SIMBAD.");
+            let bestName = "";
+            if (aliases.length > 0) {
+                // Regex pour ignorer les codes de catalogues habituels
+                const catalogRegex = /^(M|NGC|IC|UGC|PGC|VdB|Sh2|HD|HR)\s*\d+/i;
+                for (let alias of aliases) {
+                    let aliasText = alias.textContent.trim();
+                    // On cherche le premier alias qui ressemble à un vrai nom
+                    if (!catalogRegex.test(aliasText) && aliasText.length > 3) {
+                        bestName = aliasText;
+                        break;
+                    }
+                }
+            }
+            
+            // Assigne le nom trouvé (ou laisse vide si seulement des ref catalogues)
+            document.getElementById('objName').value = bestName;
+            
+            // Si SIMBAD ne renvoie aucune coordonnée, c'est que l'objet n'existe pas
+            if (!jradeg || !jdedeg) {
+                alert("Référence introuvable dans SIMBAD.");
+                btn.innerText = "🔍";
+                return;
+            }
             
             if (otype) {
                 const typeStr = otype.textContent, ts = document.getElementById('objType');
@@ -394,10 +441,9 @@
                 else ts.value = 'Autre';
             }
 
-            if (jradeg && jdedeg) {
-                document.getElementById('objRa').value = parseFloat(jradeg.textContent).toFixed(4);
-                document.getElementById('objDec').value = parseFloat(jdedeg.textContent).toFixed(4);
-            }
+            document.getElementById('objRa').value = parseFloat(jradeg.textContent).toFixed(4);
+            document.getElementById('objDec').value = parseFloat(jdedeg.textContent).toFixed(4);
+            
         } catch (err) { alert("Erreur connexion SIMBAD."); }
         btn.innerText = "🔍";
     }
@@ -489,7 +535,33 @@
     /* === FONCTIONS MATERIEL === */
     function openGearModal() { renderGearLists(); document.getElementById('gearModal').style.display = "block"; }
     function closeGearModal() { document.getElementById('gearModal').style.display = "none"; populateGearSelects(); }
-    function addGear(type, inputId) { const val = document.getElementById(inputId).value.trim(); if(val && !myGear[type].includes(val)) { myGear[type].push(val); localStorage.setItem('astroGear_v1', JSON.stringify(myGear)); document.getElementById(inputId).value = ''; renderGearLists(); } }
+    function addGear(type) {
+        let val = "";
+        let mainInputId = type === 'cameras' ? 'newCam' : type === 'scopes' ? 'newScope' : 'newFilter';
+        const name = document.getElementById(mainInputId).value.trim();
+        
+        if (!name) return;
+
+        if (type === 'cameras') {
+            const pix = document.getElementById('newCamPix').value.trim();
+            val = name + (pix ? ` [${pix}µm]` : "");
+        } else if (type === 'scopes') {
+            const foc = document.getElementById('newScopeFoc').value.trim();
+            val = name + (foc ? ` [${foc}mm]` : "");
+        } else if (type === 'filters') {
+            val = name;
+        }
+        
+        if(!myGear[type].includes(val)) {
+            myGear[type].push(val); 
+            localStorage.setItem('astroGear_v1', JSON.stringify(myGear)); 
+            renderGearLists(); 
+        }
+        
+        document.getElementById(mainInputId).value = '';
+        if (type === 'cameras') document.getElementById('newCamPix').value = '';
+        if (type === 'scopes') document.getElementById('newScopeFoc').value = '';
+    }
     function deleteGear(type, index) { myGear[type].splice(index, 1); localStorage.setItem('astroGear_v1', JSON.stringify(myGear)); renderGearLists(); }
     function renderGearLists() { const rl = (type, cId) => { const c = document.getElementById(cId); c.innerHTML = ''; myGear[type].forEach((item, i) => c.innerHTML += `<div class="gear-item">${item} <button class="gear-del" onclick="deleteGear('${type}', ${i})">✕</button></div>`); }; rl('cameras', 'listCameras'); rl('scopes', 'listScopes'); rl('filters', 'listFilters'); }
     function populateGearSelects() { const ps = (type, sId, def) => { const s = document.getElementById(sId); s.innerHTML = `<option value="-">${def}</option>`; myGear[type].forEach(item => s.add(new Option(item, item))); }; ps('cameras', 'sesCam', '-- Sél --'); ps('scopes', 'sesScope', '-- Sél --'); ps('filters', 'sesFilter', '-- Aucun --'); }
