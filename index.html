@@ -425,6 +425,7 @@
             const text = await response.text();
             const xml = new DOMParser().parseFromString(text, "text/xml");
             
+            const oname = xml.querySelector("oname");
             const otype = xml.querySelector("otype");
             const jradeg = xml.querySelector("jradeg");
             const jdedeg = xml.querySelector("jdedeg");
@@ -450,50 +451,73 @@
             // 2. LES COORDONNÉES
             const raDeg = parseFloat(jradeg.textContent);
             const decDeg = parseFloat(jdedeg.textContent);
-            document.getElementById('objRa').value = raDeg.toFixed(4);
-            document.getElementById('objDec').value = decDeg.toFixed(4);
+            if (document.getElementById('objRa')) document.getElementById('objRa').value = raDeg.toFixed(4);
+            if (document.getElementById('objDec')) document.getElementById('objDec').value = decDeg.toFixed(4);
 
             // 3. L'HÉMISPHÈRE
             const hemSelect = document.getElementById('objHem');
-            if (decDeg > 15) hemSelect.value = "Nord";
-            else if (decDeg < -15) hemSelect.value = "Sud";
-            else hemSelect.value = "Nord & Sud";
+            if (hemSelect) {
+                if (decDeg > 15) hemSelect.value = "Nord";
+                else if (decDeg < -15) hemSelect.value = "Sud";
+                else hemSelect.value = "Nord & Sud";
+            }
 
             // 4. LA PÉRIODE DE VISIBILITÉ
-            const raHours = raDeg / 15;
-            let bestMonth = Math.round((raHours - 8 + 24) % 24 / 2);
-            if (bestMonth === 12) bestMonth = 0;
-            document.getElementById('monthStart').value = (bestMonth - 3 + 12) % 12;
-            document.getElementById('monthEnd').value = (bestMonth + 3) % 12;
+            const monthStart = document.getElementById('monthStart');
+            const monthEnd = document.getElementById('monthEnd');
+            if (monthStart && monthEnd) {
+                const raHours = raDeg / 15;
+                let bestMonth = Math.round((raHours - 8 + 24) % 24 / 2);
+                if (bestMonth === 12) bestMonth = 0;
+                monthStart.value = (bestMonth - 3 + 12) % 12;
+                monthEnd.value = (bestMonth + 3) % 12;
+            }
 
             // 5. VÉRIFICATION DES CONTRAINTES DU LIEU
-            if (activeSiteId && mySites.length > 0) {
+            if (typeof activeSiteId !== 'undefined' && activeSiteId && typeof mySites !== 'undefined' && mySites.length > 0) {
                 const site = mySites.find(s => s.id === activeSiteId);
-                const minAlt = site.minAlt !== undefined ? site.minAlt : 20;
-                const maxAlt = 90 - Math.abs(parseFloat(site.lat) - decDeg);
-                const transitDir = decDeg > parseFloat(site.lat) ? "NORD" : "SUD";
-                
-                let warning = "";
-                if (maxAlt < minAlt) warning += `- Élévation max (${maxAlt.toFixed(1)}°) inférieure à ton minimum (${minAlt}°).\n`;
-                if (transitDir === "NORD" && !site.viewN) warning += `- Transit au NORD (horizon désactivé).\n`;
-                if (transitDir === "SUD" && !site.viewS) warning += `- Transit au SUD (horizon désactivé).\n`;
-                
-                if (warning) {
-                    alert(`⚠️ Contraintes pour le lieu "${site.name}" :\n${warning}\n(Tu pourras toujours l'imager depuis un autre lieu)`);
+                if (site) {
+                    const minAlt = site.minAlt !== undefined ? site.minAlt : 20;
+                    const maxAlt = 90 - Math.abs(parseFloat(site.lat) - decDeg);
+                    const transitDir = decDeg > parseFloat(site.lat) ? "NORD" : "SUD";
+                    
+                    let warning = "";
+                    if (maxAlt < minAlt) warning += `- Élévation max (${maxAlt.toFixed(1)}°) inférieure à ton minimum (${minAlt}°).\n`;
+                    if (transitDir === "NORD" && !site.viewN) warning += `- Transit au NORD (horizon désactivé).\n`;
+                    if (transitDir === "SUD" && !site.viewS) warning += `- Transit au SUD (horizon désactivé).\n`;
+                    
+                    if (warning) {
+                        alert(`⚠️ Contraintes pour le lieu "${site.name}" :\n${warning}\n(Tu pourras toujours l'imager depuis un autre lieu)`);
+                    }
                 }
             }
 
-            // 6. PROPOSITION DES NOMS (ALIASES) EN LISTE
-            if (aliases.length > 0) {
+            // 6. PROPOSITION DES NOMS
+            let aliasArray = Array.from(aliases).map(a => a.textContent.trim());
+            
+            // Sécurité : si aucun alias mais qu'un nom de base existe, on l'affiche directement
+            if (aliasArray.length === 0 && oname) {
+                document.getElementById('objName').value = oname.textContent.trim();
+            } else if (aliasArray.length > 0) {
+                
+                // Création à la volée de la modale HTML si elle n'existe pas dans le document
+                if (!document.getElementById('aliasModal')) {
+                    document.body.insertAdjacentHTML('beforeend', `
+                        <div id="aliasModal" class="modal" style="z-index: 1000;">
+                            <div class="modal-content" style="border-color: var(--accent); max-width: 500px;">
+                                <span class="close-modal" onclick="document.getElementById('aliasModal').style.display='none'">&times;</span>
+                                <h2 style="color: var(--accent); margin-top:0;">🔍 Choisir un nom</h2>
+                                <p style="font-size: 0.85rem; color: #95a5a6; margin-bottom: 15px;">SIMBAD a trouvé plusieurs identifiants pour cette cible :</p>
+                                <div id="aliasList" style="display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto; padding-right: 10px;"></div>
+                            </div>
+                        </div>
+                    `);
+                }
+                
                 const aliasListDiv = document.getElementById('aliasList');
                 aliasListDiv.innerHTML = '';
                 
-                let aliasArray = Array.from(aliases).map(a => a.textContent.trim());
-                
-                // Regex pour repérer les catalogues chiants (M, NGC, IC, etc.)
                 const catalogRegex = /^(M|NGC|IC|UGC|PGC|VdB|Sh2|HD|HR)\s*\d+/i;
-                
-                // Tri : Les vrais noms propres remontent en haut de la liste
                 aliasArray.sort((a, b) => {
                     let aIsCat = catalogRegex.test(a);
                     let bIsCat = catalogRegex.test(b);
@@ -505,13 +529,11 @@
                 aliasArray.forEach(aliasText => {
                     const btnAlias = document.createElement('button');
                     btnAlias.className = 'btn-tool';
-                    // Les vrais noms sont bleus, les catalogues sont grisés
                     btnAlias.style.background = catalogRegex.test(aliasText) ? 'rgba(255,255,255,0.1)' : 'var(--accent)';
                     btnAlias.style.width = '100%';
                     btnAlias.style.textAlign = 'left';
                     btnAlias.style.justifyContent = 'flex-start';
                     btnAlias.innerText = aliasText;
-                    
                     btnAlias.onclick = () => {
                         document.getElementById('objName').value = aliasText;
                         document.getElementById('aliasModal').style.display = 'none';
@@ -519,22 +541,22 @@
                     aliasListDiv.appendChild(btnAlias);
                 });
                 
-                // Bouton pour refuser toutes les suggestions
                 const ignoreBtn = document.createElement('button');
                 ignoreBtn.className = 'btn-tool';
                 ignoreBtn.style.background = '#e74c3c';
                 ignoreBtn.style.width = '100%';
                 ignoreBtn.style.marginTop = '15px';
                 ignoreBtn.innerText = "Laisser vide / Saisir manuellement";
-                ignoreBtn.onclick = () => {
-                    document.getElementById('aliasModal').style.display = 'none';
-                };
+                ignoreBtn.onclick = () => { document.getElementById('aliasModal').style.display = 'none'; };
                 aliasListDiv.appendChild(ignoreBtn);
 
                 document.getElementById('aliasModal').style.display = 'block';
             }
 
-        } catch (err) { alert("Erreur connexion SIMBAD."); }
+        } catch (err) { 
+            alert("Erreur connexion SIMBAD ou problème lors de la recherche."); 
+            console.error(err); 
+        }
         btn.innerText = "🔍";
     }
 
